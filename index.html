@@ -66,7 +66,7 @@
 
 <main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
 
-  <!-- Tab bar — 6 views -->
+  <!-- Tab bar -->
   <div class="flex flex-wrap gap-1 bg-slate-950/80 p-1.5 rounded-xl border border-white/10 justify-center">
     <button onclick="setLevel('tl')"        id="btn-tl"        class="level-btn flex-1 min-w-[130px] px-3 py-2 text-xs font-bold rounded-lg">👥 Team Leaders</button>
     <button onclick="setLevel('tsm')"       id="btn-tsm"       class="level-btn flex-1 min-w-[130px] px-3 py-2 text-xs font-bold rounded-lg">💼 Territory Sales Mgrs</button>
@@ -90,7 +90,8 @@
     </div>
     <div id="empty-state" class="hidden text-center py-10 text-slate-400 text-sm">
       <i class="fa-solid fa-satellite-dish text-2xl mb-2 block"></i>
-      No live data connected yet for this level.
+      <p>No live data connected yet for this level.</p>
+      <p class="text-[10px] mt-1 text-slate-600">Use the Admin Setup page to connect your Google Sheets, then paste the generated link into your browser.</p>
     </div>
     <div class="flex flex-col gap-8" id="podiums-outer-container"></div>
     <div class="mt-6 space-y-3" id="runner-ups-container"></div>
@@ -113,7 +114,6 @@
             class="w-full bg-slate-950 border border-white/20 text-sm text-white rounded-xl py-2 px-4 focus:outline-none focus:border-turfGreen">
           <span class="absolute right-3 top-2.5 text-slate-500 text-sm"><i class="fa-solid fa-magnifying-glass"></i></span>
         </div>
-        <p class="text-[10px] text-slate-500">Auto-suggests instantly from active database</p>
       </div>
       <div class="md:col-span-8">
         <div id="motivation-hero-card" class="bg-slate-900/60 p-4 rounded-xl border border-white/10 text-center md:text-left min-h-[110px] flex items-center justify-center">
@@ -124,54 +124,93 @@
   </div>
 
 </main>
-
 <div id="toast-container" class="fixed bottom-5 right-5 space-y-2 z-50"></div>
 
 <script>
-// ─── Config ──────────────────────────────────────────────────────────────────
-const LEVELS = ['tl','tsm','territory','region','rhos','country'];
-// Sheets that actually hold raw data (territory/rhos/country are derived from these)
-const RAW_LEVELS = ['tl','tsm','region','country'];
-const SHEET_NAME_KEY = { tl:'dstv_sheet_name_tl', tsm:'dstv_sheet_name_tsm', region:'dstv_sheet_name_region', country:'dstv_sheet_name_country' };
+// ═══════════════════════════════════════════════════════════════════════════════
+// CONFIG KEYS
+// ═══════════════════════════════════════════════════════════════════════════════
 const PROXY_KEY   = 'dstv_proxy_url';
 const GOALMET_KEY = 'dstv_country_goal_met';
+const SHEET_NAME_KEY = {
+  tl:      'dstv_sheet_name_tl',
+  tsm:     'dstv_sheet_name_tsm',
+  region:  'dstv_sheet_name_region',
+  country: 'dstv_sheet_name_country'
+};
+const RAW_LEVELS = ['tl','tsm','region','country'];
+const LEVELS     = ['tl','tsm','territory','region','rhos','country'];
 
 const TITLES = {
-  tl:        'TEAM LEADERS CHAMPIONS',
-  tsm:       'TERRITORY SALES MANAGERS CHAMPIONS',
-  territory: 'BEST PERFORMING TERRITORIES',
-  region:    'REGIONAL CHAMPIONS',
-  rhos:      'REGIONAL HEADS (RHoS) RECOGNITION',
-  country:   'NATIONAL SALES RECOGNITION'
+  tl:'TEAM LEADERS CHAMPIONS', tsm:'TERRITORY SALES MANAGERS CHAMPIONS',
+  territory:'BEST PERFORMING TERRITORIES', region:'REGIONAL CHAMPIONS',
+  rhos:'REGIONAL HEADS (RHoS) RECOGNITION', country:'NATIONAL SALES RECOGNITION'
 };
-
-// Prize config per level
 const PRIZE = {
-  tl:        { perRank: [15000, 10000, 8000],  names: ['Tablet / Smart Watch','Smart Watch','Tablet'],   icon:'⌚', grand: 60000,  grandName:'Core i7 Laptop' },
-  tsm:       { perRank: [40000, 25000, 20000], names: ['High-End Phone','Smart Watch','Tablet'],          icon:'📱', grand: 100000, grandName:'TSM Champion Promo Travel' },
-  territory: { perRank: [50000, 30000, 25000], names: ['Team Exp + Trophy','Equipment Pack','Kits & Tools'], icon:'🏆', grand: 100000, grandName:'Best Territory Promo Team Trip' },
-  region:    { perRank: [150000,0,0],          names: ['Best Region Celebration','',''],                  icon:'✨', grand: 150000, grandName:'Best Region Executive Reward' },
-  rhos:      { perRank: [200000,0,0],          names: ['Executive Recognition','',''],                    icon:'👑', grand: 200000, grandName:'Regional Head Executive Reward' },
-  country:   { perRank: [],                    names: [],                                                 icon:'🇪🇹', grand: 0, grandName: '' }
+  tl:        { perRank:[15000,10000,8000],  names:['Tablet / Smart Watch','Smart Watch','Tablet'],          icon:'⌚', grand:60000,  grandName:'Core i7 Laptop' },
+  tsm:       { perRank:[40000,25000,20000], names:['High-End Phone','Smart Watch','Tablet'],                 icon:'📱', grand:100000, grandName:'TSM Champion Promo Travel' },
+  territory: { perRank:[50000,30000,25000], names:['Team Exp + Trophy','Equipment Pack','Kits & Tools'],     icon:'🏆', grand:100000, grandName:'Best Territory Promo Team Trip' },
+  region:    { perRank:[150000,0,0],        names:['Best Region Celebration','',''],                         icon:'✨', grand:150000, grandName:'Best Region Executive Reward' },
+  rhos:      { perRank:[200000,0,0],        names:['Executive Recognition','',''],                           icon:'👑', grand:200000, grandName:'Regional Head Executive Reward' },
+  country:   { perRank:[],                  names:[],                                                        icon:'🇪🇹', grand:0, grandName:'' }
 };
 
-// ─── State ────────────────────────────────────────────────────────────────────
-let activeLevel = 'tl';
-let sheetRows = { tl:[], tsm:[], region:[], country:[] };  // raw rows from sheets
-let sheetStatus = { tl:'idle', tsm:'idle', region:'idle', country:'idle' };
-let countryGoalMet = true;
-
-// ─── Boot / config resolution ─────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// PERSISTENT CONFIG  —  priority: URL hash > URL query > localStorage
+//
+// WHY HASH?  The URL hash (#…) survives F5 / Ctrl+R page refresh in every
+// browser. Query params (?…) also survive refresh but get stripped when GitHub
+// Pages redirects or when users share a bare URL. We encode the whole config
+// into the hash so the single generated link is permanently self-contained:
+//   dashboard.html#proxy=…&tl=…&tsm=…&region=…&country=…&goalmet=…
+// On first visit the hash is written to localStorage as a permanent fallback
+// so even if the user somehow loses the hash, the page still works.
+// ═══════════════════════════════════════════════════════════════════════════════
 function resolveConfig() {
-  const params = new URLSearchParams(window.location.search);
-  const proxyParam = params.get('proxy');
-  if (proxyParam) localStorage.setItem(PROXY_KEY, proxyParam);
-  ['tl','tsm','region','country'].forEach(lv => {
-    const v = params.get(lv);
+  // 1. Parse hash (strip leading #)
+  const hash   = (window.location.hash || '').replace(/^#/, '');
+  const hParams = new URLSearchParams(hash);
+
+  // 2. Parse query string as secondary source
+  const qParams = new URLSearchParams(window.location.search);
+
+  function pick(key) {
+    return hParams.get(key) || qParams.get(key) || null;
+  }
+
+  const proxy = pick('proxy');
+  if (proxy) localStorage.setItem(PROXY_KEY, proxy);
+
+  RAW_LEVELS.forEach(lv => {
+    const v = pick(lv);
     if (v) localStorage.setItem(SHEET_NAME_KEY[lv], v);
   });
-  const gp = params.get('goalmet');
-  if (gp !== null) localStorage.setItem(GOALMET_KEY, gp === 'true' ? 'true' : 'false');
+
+  const gm = pick('goalmet');
+  if (gm !== null) localStorage.setItem(GOALMET_KEY, gm === 'true' ? 'true' : 'false');
+
+  // 3. If hash is empty but localStorage has data, rebuild the hash so refresh works
+  //    (this handles the case where admin saved to localStorage on same origin but
+  //    the user opened dashboard without query params)
+  if (!hash) {
+    const storedProxy = localStorage.getItem(PROXY_KEY);
+    if (storedProxy) {
+      const rebuilt = new URLSearchParams();
+      rebuilt.set('proxy', storedProxy);
+      RAW_LEVELS.forEach(lv => {
+        const n = localStorage.getItem(SHEET_NAME_KEY[lv]);
+        if (n) rebuilt.set(lv, n);
+      });
+      const gms = localStorage.getItem(GOALMET_KEY);
+      rebuilt.set('goalmet', gms !== 'false' ? 'true' : 'false');
+      // Replace hash silently (no page reload)
+      history.replaceState(null, '', '#' + rebuilt.toString());
+    }
+  }
+
+  // 4. If hash has data, also mirror it into localStorage (idempotent)
+  //    AND make sure the hash is in the URL permanently (already there if we got here)
+
   countryGoalMet = localStorage.getItem(GOALMET_KEY) !== 'false';
 }
 
@@ -182,7 +221,17 @@ function buildFetchUrl(level) {
   return proxy + '?sheet=' + encodeURIComponent(name);
 }
 
-// ─── Data fetching ────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════════════════════
+let activeLevel   = 'tl';
+let sheetRows     = { tl:[], tsm:[], region:[], country:[] };
+let sheetStatus   = { tl:'idle', tsm:'idle', region:'idle', country:'idle' };
+let countryGoalMet = true;
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// DATA FETCHING
+// ═══════════════════════════════════════════════════════════════════════════════
 async function loadLevel(level) {
   const url = buildFetchUrl(level);
   if (!url) { sheetStatus[level] = 'empty'; sheetRows[level] = []; return; }
@@ -191,22 +240,25 @@ async function loadLevel(level) {
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
     if (json && json.error) throw new Error(json.error);
-    sheetRows[level] = mapRows(json, level);
+    sheetRows[level]  = mapRows(json, level);
     sheetStatus[level] = 'ok';
   } catch(e) {
     sheetStatus[level] = 'error';
-    sheetRows[level] = [];
-    showToast('⚠️ Could not load ' + level.toUpperCase() + ' sheet. Check Admin Setup.', 'warning');
+    sheetRows[level]  = [];
+    showToast('⚠️ Could not load ' + level.toUpperCase() + ' sheet — ' + e.message, 'warning');
   }
 }
 
 async function loadAll() {
+  document.getElementById('last-synced').innerText = 'Syncing…';
   await Promise.all(RAW_LEVELS.map(loadLevel));
   document.getElementById('last-synced').innerText = 'Last synced: ' + new Date().toLocaleTimeString();
   render();
 }
 
-// ─── CSV / array → row mapping ────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// ROW MAPPING  — 2-D array from Apps Script → typed objects
+// ═══════════════════════════════════════════════════════════════════════════════
 function findCol(headers, aliases) {
   const exact = headers.findIndex(h => aliases.includes(h));
   if (exact !== -1) return exact;
@@ -215,7 +267,7 @@ function findCol(headers, aliases) {
 }
 function toNum(v) {
   if (typeof v === 'number') return isNaN(v) ? 0 : v;
-  const n = parseFloat(String(v || '').replace(/[, ]/g,''));
+  const n = parseFloat(String(v == null ? '' : v).replace(/[, ]/g,''));
   return isNaN(n) ? 0 : n;
 }
 function toBool(v, fallback) {
@@ -226,16 +278,19 @@ function toBool(v, fallback) {
 function mapRows(raw, level) {
   if (!raw || raw.length < 2) return [];
   const headers = raw[0].map(h => String(h == null ? '' : h).trim().toLowerCase());
-  const nameIdx       = findCol(headers, ['name','leader','manager','candidate','head','regional head']);
+
+  const nameIdx       = findCol(headers, ['name','leader','manager','candidate','head','regional head','territory']);
   const targetIdx     = findCol(headers, ['target','goal','quota']);
-  const actualIdx     = findCol(headers, ['actual','sales','activation','nns']);
+  const actualIdx     = findCol(headers, ['actual','sales','activation','nns','achieved']);
   const disciplineIdx = findCol(headers, ['discipline','compliant','conduct','clean']);
   const regionIdx     = findCol(headers, ['region','zone']);
   const territoryIdx  = findCol(headers, ['territory','city','place']);
   const tsmIdx        = findCol(headers, ['tsm','territory sales manager']);
-  const headIdx       = findCol(headers, ['head','regional head']);
-  const fssIdx        = findCol(headers, ['fss']);
+  const headIdx       = findCol(headers, ['head','regional head','rho']);
+  const fssIdx        = findCol(headers, ['fss','score']);
+
   if (nameIdx === -1 || targetIdx === -1 || actualIdx === -1) return [];
+
   const out = [];
   for (let i = 1; i < raw.length; i++) {
     const c = raw[i];
@@ -246,33 +301,49 @@ function mapRows(raw, level) {
       target:     toNum(c[targetIdx]),
       actual:     toNum(c[actualIdx]),
       discipline: disciplineIdx !== -1 ? toBool(c[disciplineIdx], true) : true,
-      region:     regionIdx     !== -1 ? String(c[regionIdx]    || '').trim() : '',
-      territory:  territoryIdx  !== -1 ? String(c[territoryIdx] || '').trim() : '',
-      tsm:        tsmIdx        !== -1 ? String(c[tsmIdx]       || '').trim() : '',
-      head:       headIdx       !== -1 ? String(c[headIdx]      || '').trim() : '',
+      region:     regionIdx     !== -1 ? String(c[regionIdx]    == null ? '' : c[regionIdx]).trim()    : '',
+      territory:  territoryIdx  !== -1 ? String(c[territoryIdx] == null ? '' : c[territoryIdx]).trim() : '',
+      tsm:        tsmIdx        !== -1 ? String(c[tsmIdx]       == null ? '' : c[tsmIdx]).trim()       : '',
+      head:       headIdx       !== -1 ? String(c[headIdx]      == null ? '' : c[headIdx]).trim()      : '',
       fss:        fssIdx        !== -1 ? Math.max(0, Math.min(3, toNum(c[fssIdx]))) : 0,
     });
   }
   return out;
 }
 
-// ─── Derivation: Territory from TL sheet ──────────────────────────────────────
-// TL sheet has columns: name, territory, region, tsm, target, actual, discipline
-// We roll up by territory name.
+// ═══════════════════════════════════════════════════════════════════════════════
+// DERIVATION
+//
+// Territory  → derived from TSM Leader Board, grouped by "territory" column
+// RHoS       → derived from Region Leader Board, using "head" column for names
+// ═══════════════════════════════════════════════════════════════════════════════
 function deriveTerritories() {
-  const rows = sheetRows.tl;
-  const map = new Map();
+  // Source: TSM sheet — each row is a TSM; they have a "territory" column.
+  // We group by territory name and aggregate target/actual/discipline across
+  // all TSM rows that belong to that territory.
+  const rows = sheetRows.tsm;
+  const map  = new Map();
   rows.forEach(r => {
-    const key = (r.territory || r.name).toLowerCase();
+    const key = (r.territory || r.name).trim().toLowerCase();
+    if (!key) return;
     if (!map.has(key)) {
-      map.set(key, { name: r.territory || r.name, region: r.region, tsm: r.tsm, target:0, actual:0, disciplineOk:0, count:0, fssSum:0 });
+      map.set(key, {
+        name:       r.territory || r.name,
+        region:     r.region,
+        tsm:        r.name,   // the TSM who manages this territory
+        target:     0,
+        actual:     0,
+        okCount:    0,
+        total:      0,
+        fssSum:     0
+      });
     }
     const b = map.get(key);
-    b.target += r.target;
-    b.actual += r.actual;
-    b.count++;
-    if (r.discipline) b.disciplineOk++;
-    b.fssSum += r.fss || 0;
+    b.target   += r.target;
+    b.actual   += r.actual;
+    b.total++;
+    if (r.discipline) b.okCount++;
+    b.fssSum   += r.fss || 0;
   });
   return Array.from(map.values()).map(b => ({
     name:       b.name,
@@ -280,26 +351,28 @@ function deriveTerritories() {
     tsm:        b.tsm,
     target:     b.target,
     actual:     b.actual,
-    discipline: b.count > 0 && b.disciplineOk === b.count,
-    fss:        b.count > 0 ? Math.round((b.fssSum / b.count) * 10) / 10 : 0,
+    discipline: b.total > 0 && b.okCount === b.total,
+    fss:        b.total > 0 ? Math.round((b.fssSum / b.total) * 10) / 10 : 0,
   }));
 }
 
-// ─── Derivation: RHoS from Region sheet ───────────────────────────────────────
-// Region sheet columns: name (region name), head (regional head), target, actual, discipline
-// RHoS view = same data, but we display head name instead of region name.
 function deriveRHoS() {
+  // Source: Region sheet — must have a "head" column with the regional head's name.
   return sheetRows.region.map(r => ({
-    name:       r.head || r.name,   // head column, fallback to name
+    name:       r.head || r.name,
     regionName: r.name,
+    region:     r.name,
     target:     r.target,
     actual:     r.actual,
     discipline: r.discipline,
     fss:        r.fss,
+    detail:     r.name + ' Region',
   }));
 }
 
-// ─── Scoring ──────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// SCORING
+// ═══════════════════════════════════════════════════════════════════════════════
 function achPts(pct) { return pct < 0.95 ? 0 : Math.min(95, 95 * Math.min(1.10, pct)); }
 
 function computeLevel(level) {
@@ -307,242 +380,237 @@ function computeLevel(level) {
 
   if (level === 'tl') {
     pool = sheetRows.tl.map(r => {
-      const achPercent = r.target > 0 ? r.actual / r.target : 0;
-      const score = achPts(achPercent) + (r.discipline ? 5 : 0);
+      const ach = r.target > 0 ? r.actual / r.target : 0;
+      const score = achPts(ach) + (r.discipline ? 5 : 0);
       const eligible = r.target > 0 && score >= 95 && r.discipline;
-      return { ...r, achPercent, score, eligible,
-        detail: r.territory ? 'Territory: ' + r.territory : r.region,
-        prizeBase: eligible ? 'tl' : null };
+      return { ...r, achPercent:ach, score, eligible,
+        detail: r.territory ? 'Territory: ' + r.territory : r.region };
     });
 
   } else if (level === 'tsm') {
     pool = sheetRows.tsm.map(r => {
-      const achPercent = r.target > 0 ? r.actual / r.target : 0;
-      const score = achPts(achPercent) + (r.discipline ? 2 : 0) + (r.fss || 0);
+      const ach = r.target > 0 ? r.actual / r.target : 0;
+      const score = achPts(ach) + (r.discipline ? 2 : 0) + (r.fss || 0);
       const eligible = r.target > 0 && score >= 95 && r.discipline;
-      return { ...r, achPercent, score, eligible,
-        detail: r.territory || r.region || '',
-        prizeBase: eligible ? 'tsm' : null };
+      return { ...r, achPercent:ach, score, eligible,
+        detail: r.territory ? 'Territory: ' + r.territory : r.region };
     });
 
   } else if (level === 'territory') {
-    if (sheetRows.tl.length === 0) return [];
+    if (!sheetRows.tsm.length) return [];
     pool = deriveTerritories().map(r => {
-      const achPercent = r.target > 0 ? r.actual / r.target : 0;
-      const score = achPts(achPercent) + (r.discipline ? 5 : 0);
+      const ach = r.target > 0 ? r.actual / r.target : 0;
+      const score = achPts(ach) + (r.discipline ? 5 : 0);
       const eligible = r.target > 0 && score >= 95 && r.discipline;
-      return { ...r, achPercent, score, eligible,
-        detail: r.tsm ? 'TSM: ' + r.tsm : r.region,
-        prizeBase: eligible ? 'territory' : null };
+      return { ...r, achPercent:ach, score, eligible,
+        detail: r.tsm ? 'TSM: ' + r.tsm : r.region };
     });
 
   } else if (level === 'region') {
     pool = sheetRows.region.map(r => {
-      const achPercent = r.target > 0 ? r.actual / r.target : 0;
-      const score = achPts(achPercent) + 5;
+      const ach = r.target > 0 ? r.actual / r.target : 0;
+      const score = achPts(ach) + 5;
       const eligible = r.target > 0 && score >= 95;
-      return { ...r, achPercent, score, eligible,
-        detail: r.head ? 'Head: ' + r.head : '',
-        grandPrizeEligibility: eligible && countryGoalMet,
-        prizeBase: eligible ? 'region' : null };
+      return { ...r, achPercent:ach, score, eligible,
+        detail: r.head ? 'Head: ' + r.head : '' };
     });
 
   } else if (level === 'rhos') {
-    if (sheetRows.region.length === 0) return [];
+    if (!sheetRows.region.length) return [];
     pool = deriveRHoS().map(r => {
-      const achPercent = r.target > 0 ? r.actual / r.target : 0;
-      const score = achPts(achPercent) + 5;
+      const ach = r.target > 0 ? r.actual / r.target : 0;
+      const score = achPts(ach) + 5;
       const eligible = r.target > 0 && score >= 95;
-      return { ...r, achPercent, score, eligible,
-        region: r.regionName,
-        detail: r.regionName + ' Region',
-        grandPrizeEligibility: eligible && countryGoalMet,
-        prizeBase: eligible ? 'rhos' : null };
+      return { ...r, achPercent:ach, score, eligible };
     });
 
   } else if (level === 'country') {
     pool = sheetRows.country.map(r => {
-      const achPercent = r.target > 0 ? r.actual / r.target : 0;
-      const score = achPts(achPercent) + 5;
+      const ach = r.target > 0 ? r.actual / r.target : 0;
+      const score = achPts(ach) + 5;
       const eligible = r.target > 0 && score >= 95;
-      return { ...r, achPercent, score, eligible,
-        detail: r.head ? 'Head of Sales' : 'National',
-        grandPrizeEligibility: false,
-        prizeBase: null };
+      return { ...r, achPercent:ach, score, eligible,
+        detail: 'Head of Sales — National',
+        grandPrizeEligibility: false };
     });
   }
 
-  // Sort: eligible first, then by achPercent desc, then score desc
-  pool.sort((a, b) => {
+  pool.sort((a,b) => {
     if (a.eligible !== b.eligible) return b.eligible ? 1 : -1;
     if (b.achPercent !== a.achPercent) return b.achPercent - a.achPercent;
     return b.score - a.score;
   });
 
-  // Assign grand prize eligibility for region/rhos (only top eligible wins)
+  // Grand prize: only top eligible for region/rhos
   if (level === 'region' || level === 'rhos') {
-    const topEl = pool.find(r => r.eligible && countryGoalMet);
     pool.forEach(r => { r.grandPrizeEligibility = false; });
-    if (topEl) topEl.grandPrizeEligibility = true;
+    const top = pool.find(r => r.eligible && countryGoalMet);
+    if (top) top.grandPrizeEligibility = true;
+  } else if (level !== 'country') {
+    pool.forEach(r => { r.grandPrizeEligibility = r.eligible; });
   }
 
   return pool;
 }
 
-// ─── Rendering ────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// RENDERING
+// ═══════════════════════════════════════════════════════════════════════════════
 function setLevel(level) {
   activeLevel = level;
-  LEVELS.forEach(l => {
-    const btn = document.getElementById('btn-' + l);
-    btn.classList.toggle('active', l === level);
-  });
+  LEVELS.forEach(l => document.getElementById('btn-'+l).classList.toggle('active', l === level));
   document.getElementById('podium-title').innerText = TITLES[level];
   document.getElementById('liveSearch').value = '';
   render();
 }
 
 function render() {
-  const podOuter  = document.getElementById('podiums-outer-container');
-  const runners   = document.getElementById('runner-ups-container');
-  const emptyEl   = document.getElementById('empty-state');
-  podOuter.innerHTML = '';
-  runners.innerHTML  = '';
+  const outer   = document.getElementById('podiums-outer-container');
+  const runners = document.getElementById('runner-ups-container');
+  const empty   = document.getElementById('empty-state');
+  outer.innerHTML   = '';
+  runners.innerHTML = '';
 
-  // For territory and rhos, the raw data source is tl / region respectively
-  const sourceLevel = activeLevel === 'territory' ? 'tl'
-                    : activeLevel === 'rhos'      ? 'region'
-                    : activeLevel;
+  // Determine which raw sheet backs this view
+  const srcLevel = activeLevel === 'territory' ? 'tsm'
+                 : activeLevel === 'rhos'      ? 'region'
+                 : activeLevel;
 
-  const sourceOk = RAW_LEVELS.includes(sourceLevel)
-    ? (sheetStatus[sourceLevel] === 'ok' && sheetRows[sourceLevel].length > 0)
-    : true;
+  const hasData = sheetRows[srcLevel] && sheetRows[srcLevel].length > 0;
+  if (!hasData) { empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
 
-  if (!sourceOk) { emptyEl.classList.remove('hidden'); return; }
-  emptyEl.classList.add('hidden');
-
-  const search   = document.getElementById('liveSearch').value.toLowerCase();
+  const search   = document.getElementById('liveSearch').value.trim().toLowerCase();
   let computed   = computeLevel(activeLevel);
   if (search) computed = computed.filter(c => c.name.toLowerCase().includes(search));
-  if (computed.length === 0) { emptyEl.classList.remove('hidden'); return; }
+  if (!computed.length) { empty.classList.remove('hidden'); return; }
 
-  // TL view: one podium per region
   if (activeLevel === 'tl') {
-    renderTLByRegion(podOuter, computed);
+    renderTLByRegion(outer, computed);
   } else {
-    renderSinglePodium(podOuter, runners, computed, activeLevel);
+    renderSinglePodium(outer, runners, computed, activeLevel);
   }
 }
 
-// ── TL: podium per region ─────────────────────────────────────────────────────
-function renderTLByRegion(container, computed) {
-  // Gather unique regions in order of appearance
-  const regionOrder = [];
-  computed.forEach(c => {
-    if (c.region && !regionOrder.includes(c.region)) regionOrder.push(c.region);
-  });
+// ── Podium card builder ────────────────────────────────────────────────────────
+function podiumCard(item, idx, borderCls, heightCls, medal, scaleCls, level) {
+  const prz       = PRIZE[level];
+  const rankPrize = (prz.perRank[idx] || 0);
+  const rankName  = (prz.names[idx]  || '');
 
-  regionOrder.forEach(regionName => {
-    const regionRows = computed.filter(c => c.region === regionName);
+  let rewardHtml = '';
+  if (level !== 'country') {
+    rewardHtml = rankPrize > 0
+      ? `<div class="mt-2 p-1.5 bg-slate-950/80 rounded-lg border border-goldMedal/30 text-center">
+           <span class="block text-xs text-goldMedal font-black">${rankPrize.toLocaleString()} ETB</span>
+           <span class="text-[8px] text-slate-300 font-bold">${rankName}</span>
+         </div>`
+      : `<span class="block text-xs text-red-400 font-extrabold mt-1">⏳ Not Yet Qualified</span>`;
+  }
+
+  const el = document.createElement('div');
+  el.className = `flex flex-col items-center w-full sm:w-48 text-center transform hover:scale-105 transition-all ${scaleCls}`;
+  el.innerHTML = `
+    <div class="text-4xl mb-1">${medal}</div>
+    <div class="text-sm font-black text-white truncate w-full px-1">${item.name}</div>
+    <div class="text-xs text-slate-400 truncate w-full mb-1">${item.detail || ''}</div>
+    <div class="w-full ${heightCls} bg-gradient-to-t from-slate-950 to-slate-900 border-t-8 ${borderCls} rounded-t-2xl mt-2 flex flex-col justify-between p-3 shadow-2xl">
+      <div class="flex items-start justify-between">
+        <span class="text-[8px] text-slate-500 font-extrabold uppercase">Rank</span>
+        <span class="text-2xl font-black text-white/10 leading-none">${idx+1}</span>
+      </div>
+      <div class="space-y-1">
+        <div class="flex justify-between items-baseline">
+          <span class="text-[9px] text-slate-400 font-bold uppercase">Actual</span>
+          <span class="text-xs font-black text-turfGreen">${item.actual.toLocaleString()}</span>
+        </div>
+        <div class="flex justify-between items-baseline">
+          <span class="text-[9px] text-slate-400 font-bold uppercase">Target</span>
+          <span class="text-xs font-black text-slate-200">${item.target.toLocaleString()}</span>
+        </div>
+        <div class="flex justify-between items-baseline pt-1 border-t border-white/10">
+          <span class="text-[9px] text-slate-400 font-bold uppercase">Ach%</span>
+          <span class="text-xs font-black text-goldMedal">${Math.round(item.achPercent*100)}%</span>
+        </div>
+      </div>
+      ${rewardHtml}
+    </div>`;
+  return el;
+}
+
+const POD_SLOTS = [
+  { idx:1, border:'border-slate-400',  height:'h-40 sm:h-52', medal:'🥈', scale:'scale-95'       },
+  { idx:0, border:'border-goldMedal',  height:'h-48 sm:h-64', medal:'🥇', scale:'scale-110 z-10' },
+  { idx:2, border:'border-orange-400', height:'h-32 sm:h-40', medal:'🥉', scale:'scale-90'        },
+];
+
+// ── TL view: one podium card per region ───────────────────────────────────────
+function renderTLByRegion(container, computed) {
+  // Collect region order from data
+  const regions = [];
+  computed.forEach(c => { if (c.region && !regions.includes(c.region)) regions.push(c.region); });
+
+  regions.forEach(regionName => {
+    const rows = computed.filter(c => c.region === regionName);
 
     const regCard = document.createElement('div');
     regCard.className = 'p-5 bg-slate-900/40 rounded-2xl border border-white/5 space-y-4';
+    const podId = 'pod-' + regionName.replace(/[^a-z0-9]/gi,'_');
     regCard.innerHTML = `
       <div class="flex items-center justify-between border-b border-white/5 pb-2.5">
-        <h3 class="font-extrabold text-sm text-goldMedal flex items-center gap-1.5 uppercase tracking-wider">
-          📍 ${regionName} Region
-        </h3>
-        <span class="text-[10px] text-slate-500 font-semibold">${regionRows.length} TLs</span>
+        <h3 class="font-extrabold text-sm text-goldMedal uppercase tracking-wider">📍 ${regionName} Region</h3>
+        <span class="text-[10px] text-slate-500 font-semibold">${rows.length} TLs</span>
       </div>
-      <div class="flex flex-col sm:flex-row items-center sm:items-end justify-center gap-4 sm:gap-6 pt-2 w-full" id="podium-reg-${regionName.replace(/\s/g,'_')}"></div>
-    `;
+      <div class="flex flex-col sm:flex-row items-center sm:items-end justify-center gap-4 sm:gap-6 pt-2 w-full" id="${podId}"></div>`;
     container.appendChild(regCard);
 
-    const podDiv = document.getElementById('podium-reg-' + regionName.replace(/\s/g,'_'));
-    const top3   = regionRows.slice(0, 3);
-    const order  = [[1,top3[1],'border-slate-400','h-40 sm:h-48','🥈','scale-95'],
-                    [0,top3[0],'border-goldMedal', 'h-48 sm:h-60','🥇','scale-110 z-10'],
-                    [2,top3[2],'border-orange-400','h-32 sm:h-40','🥉','scale-90']];
-
-    order.forEach(([idx, item, borderCls, heightCls, medal, scaleCls]) => {
+    const podDiv = document.getElementById(podId);
+    POD_SLOTS.forEach(s => {
+      const item = rows[s.idx];
       if (!item) return;
-      const prz = PRIZE.tl;
-      const rewardHtml = item.eligible
-        ? `<div class="mt-2 p-1.5 bg-slate-950/80 rounded-lg border border-goldMedal/30 text-center">
-             <span class="block text-xs text-goldMedal font-black">${prz.perRank[idx].toLocaleString()} ETB</span>
-             <span class="text-[8px] text-slate-300 font-bold">${prz.names[idx]}</span>
-           </div>`
-        : `<span class="block text-xs text-red-400 font-extrabold mt-1">Qualification Pending</span>`;
-
-      const el = document.createElement('div');
-      el.className = `flex flex-col items-center w-full sm:w-44 text-center transform hover:scale-105 transition-all ${scaleCls}`;
-      el.innerHTML = `
-        <div class="text-4xl mb-1">${medal}</div>
-        <div class="text-sm font-black text-white truncate w-full px-1">${item.name}</div>
-        <div class="text-xs text-slate-400 truncate w-full mb-1">${item.detail}</div>
-        <div class="w-full ${heightCls} bg-gradient-to-t from-slate-950 to-slate-900 border-t-8 ${borderCls} rounded-t-2xl mt-2 flex flex-col justify-between p-3 shadow-2xl">
-          <div class="flex items-start justify-between">
-            <span class="text-[8px] text-slate-500 font-extrabold uppercase">Rank</span>
-            <span class="text-2xl font-black text-white/10 leading-none">${idx+1}</span>
-          </div>
-          <div class="space-y-1">
-            <div class="flex justify-between items-baseline">
-              <span class="text-[9px] text-slate-400 font-bold uppercase">Actual</span>
-              <span class="text-xs font-black text-turfGreen">${item.actual.toLocaleString()}</span>
-            </div>
-            <div class="flex justify-between items-baseline">
-              <span class="text-[9px] text-slate-400 font-bold uppercase">Target</span>
-              <span class="text-xs font-black text-slate-200">${item.target.toLocaleString()}</span>
-            </div>
-            <div class="flex justify-between items-baseline pt-1 border-t border-white/10">
-              <span class="text-[9px] text-slate-400 font-bold uppercase">Ach%</span>
-              <span class="text-xs font-black text-goldMedal">${Math.round(item.achPercent*100)}%</span>
-            </div>
-          </div>
-          ${rewardHtml}
-        </div>`;
-      podDiv.appendChild(el);
+      podDiv.appendChild(podiumCard(item, s.idx, s.border, s.height, s.medal, s.scale, 'tl'));
     });
 
-    // Regional runner-ups 4th & 5th
-    const runnerUps = regionRows.slice(3, 5);
-    if (runnerUps.length > 0) {
-      const runnersWrap = document.createElement('div');
-      runnersWrap.className = 'grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 pt-3 border-t border-white/5';
-      regCard.appendChild(runnersWrap);
-      runnerUps.forEach((r, i) => {
+    // 4th & 5th runners-up for this region
+    const runners = rows.slice(3,5);
+    if (runners.length) {
+      const rWrap = document.createElement('div');
+      rWrap.className = 'grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 pt-3 border-t border-white/5';
+      runners.forEach((r,i) => {
         const prizeTag = r.eligible
-          ? `<span class="text-xs font-extrabold text-goldMedal">🎁 ${PRIZE.tl.perRank[3+i] || 0} ETB — ${PRIZE.tl.names[3+i] || ''}</span>`
-          : `<span class="text-xs text-red-400">Qualification Pending</span>`;
-        const card = document.createElement('div');
-        card.className = 'p-3 bg-slate-950/40 rounded-xl text-xs flex justify-between items-center';
-        card.innerHTML = `
+          ? `<span class="text-[10px] font-extrabold text-goldMedal">🎁 ${(PRIZE.tl.perRank[3+i]||0).toLocaleString()} ETB</span>`
+          : `<span class="text-[10px] text-red-400">Qualification Pending</span>`;
+        const c = document.createElement('div');
+        c.className = 'p-3 bg-slate-950/40 rounded-xl text-xs flex justify-between items-center';
+        c.innerHTML = `
           <div>
             <span class="font-bold text-slate-400">#${i+4}</span>
             <span class="text-white font-bold ml-1">${r.name}</span>
-            <span class="text-slate-500 text-[10px] block">${r.detail}</span>
+            <span class="text-slate-500 text-[10px] block">${r.detail||''}</span>
           </div>
           <div class="text-right">
             <span class="text-slate-300 font-bold block">${r.actual.toLocaleString()} / ${r.target.toLocaleString()} (${Math.round(r.achPercent*100)}%)</span>
             ${prizeTag}
           </div>`;
-        runnersWrap.appendChild(card);
+        rWrap.appendChild(c);
       });
+      regCard.appendChild(rWrap);
     }
   });
 
-  // Overall TL grand prize banner
-  const grandWinner = computed.find(c => c.eligible);
-  if (grandWinner) {
+  // Overall grand prize banner (best eligible TL across all regions)
+  const grand = computed.find(c => c.grandPrizeEligibility);
+  if (grand) {
     const banner = document.createElement('div');
     banner.className = 'p-5 bg-gradient-to-r from-yellow-600/20 via-slate-900 to-yellow-600/20 rounded-xl border border-goldMedal/30 text-center';
     banner.innerHTML = `
-      <p class="text-xs font-black uppercase text-goldMedal tracking-widest mb-1">🔥 Overall Champion</p>
-      <p class="text-xl font-black text-white">${grandWinner.name} <span class="text-slate-400 text-sm font-semibold">(${grandWinner.region})</span></p>
-      <div class="flex items-center justify-center gap-3 mt-2 text-sm text-slate-300">
+      <p class="text-xs font-black uppercase text-goldMedal tracking-widest mb-1">🔥 Overall TL Champion</p>
+      <p class="text-xl font-black text-white">${grand.name} <span class="text-slate-400 text-sm font-semibold">(${grand.region})</span></p>
+      <div class="flex items-center justify-center gap-3 mt-2">
         <span class="text-4xl">💻</span>
-        <div class="text-left leading-snug">
-          Overall grand prize: <strong class="text-goldMedal">${PRIZE.tl.grandName} (${PRIZE.tl.grand.toLocaleString()} ETB)</strong>
-          <br/><span class="text-xs text-slate-400">Ach: ${Math.round(grandWinner.achPercent*100)}% · Sold: ${grandWinner.actual.toLocaleString()} / ${grandWinner.target.toLocaleString()}</span>
+        <div class="text-left leading-snug text-sm text-slate-300">
+          Grand prize: <strong class="text-goldMedal">${PRIZE.tl.grandName} (${PRIZE.tl.grand.toLocaleString()} ETB)</strong>
+          <br/><span class="text-xs text-slate-400">Ach: ${Math.round(grand.achPercent*100)}% · ${grand.actual.toLocaleString()} / ${grand.target.toLocaleString()}</span>
         </div>
       </div>`;
     container.prepend(banner);
@@ -551,22 +619,22 @@ function renderTLByRegion(container, computed) {
 }
 
 // ── Single unified podium (TSM / Territory / Region / RHoS / Country) ─────────
-function renderSinglePodium(container, runnersContainer, computed, level) {
+function renderSinglePodium(container, runnersEl, computed, level) {
   const prz = PRIZE[level];
 
   // Grand prize banner
-  const grandWinner = computed.find(c => c.grandPrizeEligibility);
-  if (grandWinner && prz.grand > 0) {
+  const grand = computed.find(c => c.grandPrizeEligibility);
+  if (grand && prz.grand > 0) {
     const banner = document.createElement('div');
-    banner.className = 'p-5 bg-gradient-to-r from-yellow-600/20 via-slate-900 to-yellow-600/20 rounded-xl border border-goldMedal/30 text-center';
+    banner.className = 'p-5 bg-gradient-to-r from-yellow-600/20 via-slate-900 to-yellow-600/20 rounded-xl border border-goldMedal/30 text-center mb-2';
     banner.innerHTML = `
       <p class="text-xs font-black uppercase text-goldMedal tracking-widest mb-1">🔥 Grand Prize Winner</p>
-      <p class="text-xl font-black text-white">${grandWinner.name} <span class="text-slate-400 text-sm font-semibold">(${grandWinner.region || ''})</span></p>
-      <div class="flex items-center justify-center gap-3 mt-2 text-sm text-slate-300">
+      <p class="text-xl font-black text-white">${grand.name} <span class="text-slate-400 text-sm font-semibold">${grand.region ? '('+grand.region+')' : ''}</span></p>
+      <div class="flex items-center justify-center gap-3 mt-2">
         <span class="text-4xl">${prz.icon}</span>
-        <div class="text-left leading-snug">
+        <div class="text-left leading-snug text-sm text-slate-300">
           Grand prize: <strong class="text-goldMedal">${prz.grandName} (${prz.grand.toLocaleString()} ETB)</strong>
-          <br/><span class="text-xs text-slate-400">Ach: ${Math.round(grandWinner.achPercent*100)}% · Sold: ${grandWinner.actual.toLocaleString()} / ${grandWinner.target.toLocaleString()}</span>
+          <br/><span class="text-xs text-slate-400">Ach: ${Math.round(grand.achPercent*100)}% · ${grand.actual.toLocaleString()} / ${grand.target.toLocaleString()}</span>
         </div>
       </div>`;
     container.appendChild(banner);
@@ -577,62 +645,18 @@ function renderSinglePodium(container, runnersContainer, computed, level) {
   podRow.className = 'flex flex-col sm:flex-row items-center sm:items-end justify-center gap-4 sm:gap-8 pt-4 pb-2 w-full';
   container.appendChild(podRow);
 
-  const top3  = computed.slice(0, 3);
-  const order = [[1,top3[1],'border-slate-400','h-44 sm:h-56','🥈','scale-95'],
-                 [0,top3[0],'border-goldMedal','h-52 sm:h-72','🥇','scale-110 z-10'],
-                 [2,top3[2],'border-orange-400','h-36 sm:h-44','🥉','scale-90']];
-
-  order.forEach(([idx, item, borderCls, heightCls, medal, scaleCls]) => {
+  POD_SLOTS.forEach(s => {
+    const item = computed[s.idx];
     if (!item) return;
-    const rankPrize = prz.perRank[idx] || 0;
-    const rankName  = prz.names[idx]   || '';
-
-    const rewardHtml = level === 'country'
-      ? ''
-      : (rankPrize > 0
-          ? `<div class="mt-2 p-1.5 bg-slate-950/80 rounded-lg border border-goldMedal/30 text-center">
-               <span class="text-2xl">${prz.icon}</span>
-               <span class="block text-xs text-goldMedal font-black mt-0.5">${rankPrize.toLocaleString()} ETB</span>
-               <span class="text-[8px] text-slate-300 font-bold">${rankName}</span>
-             </div>`
-          : `<span class="block text-xs text-red-400 font-extrabold mt-1">⏳ Not Yet Qualified</span>`);
-
-    const el = document.createElement('div');
-    el.className = `flex flex-col items-center w-full sm:w-48 text-center transform hover:scale-105 transition-all ${scaleCls}`;
-    el.innerHTML = `
-      <div class="text-4xl mb-1">${medal}</div>
-      <div class="text-base font-black text-white truncate w-full px-1">${item.name}</div>
-      <div class="text-xs text-slate-400 truncate w-full mb-1">${item.detail || ''}</div>
-      <div class="w-full ${heightCls} bg-gradient-to-t from-slate-900 to-slate-800/90 border-t-8 ${borderCls} rounded-t-2xl mt-3 flex flex-col justify-between p-4 shadow-2xl">
-        <div class="flex items-start justify-between">
-          <span class="text-[9px] text-slate-500 font-extrabold uppercase">Rank</span>
-          <span class="text-3xl font-black text-white/20 leading-none">${idx+1}</span>
-        </div>
-        <div class="space-y-1">
-          <div class="flex justify-between items-baseline">
-            <span class="text-[10px] text-slate-400 font-bold uppercase">Actual</span>
-            <span class="text-sm font-black text-turfGreen">${item.actual.toLocaleString()}</span>
-          </div>
-          <div class="flex justify-between items-baseline">
-            <span class="text-[10px] text-slate-400 font-bold uppercase">Target</span>
-            <span class="text-sm font-black text-slate-200">${item.target.toLocaleString()}</span>
-          </div>
-          <div class="flex justify-between items-baseline pt-1 border-t border-white/10">
-            <span class="text-[10px] text-slate-400 font-bold uppercase">Ach%</span>
-            <span class="text-sm font-black text-goldMedal">${Math.round(item.achPercent*100)}%</span>
-          </div>
-        </div>
-        ${rewardHtml}
-      </div>`;
-    podRow.appendChild(el);
+    podRow.appendChild(podiumCard(item, s.idx, s.border, s.height, s.medal, s.scale, level));
   });
 
   // 4th & 5th
-  computed.slice(3, 5).forEach((item, i) => {
+  computed.slice(3,5).forEach((item,i) => {
     const prizeTag = level === 'country'
       ? ''
-      : (item.eligible
-          ? `<span class="text-xs font-extrabold text-goldMedal">🎁 ${item.eligible ? (prz.perRank[3+i]||0).toLocaleString() + ' ETB' : ''}</span>`
+      : (item.eligible && (prz.perRank[3+i]||0) > 0
+          ? `<span class="text-xs font-extrabold text-goldMedal">🎁 ${(prz.perRank[3+i]).toLocaleString()} ETB</span>`
           : `<span class="text-xs text-red-400">Qualification Pending</span>`);
     const card = document.createElement('div');
     card.className = 'p-3 bg-slate-900/60 rounded-xl border border-white/5 flex items-center justify-between';
@@ -641,28 +665,30 @@ function renderSinglePodium(container, runnersContainer, computed, level) {
         <span class="text-xs font-bold text-slate-500">#${i+4}</span>
         <div>
           <p class="text-xs font-bold text-white">${item.name}</p>
-          <p class="text-[9px] text-slate-400">${item.detail || ''}</p>
+          <p class="text-[9px] text-slate-400">${item.detail||''}</p>
         </div>
       </div>
       <div class="text-right">
         <p class="text-xs font-bold text-slate-200">${item.actual.toLocaleString()} / ${item.target.toLocaleString()} (${Math.round(item.achPercent*100)}%)</p>
         ${prizeTag}
       </div>`;
-    runnersContainer.appendChild(card);
+    runnersEl.appendChild(card);
   });
 }
 
-// ─── Check your standing ──────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// CHECK YOUR STANDING
+// ═══════════════════════════════════════════════════════════════════════════════
 function onAgentSearchChange() {
-  const query   = document.getElementById('agent-search-input').value.trim().toLowerCase();
+  const query    = document.getElementById('agent-search-input').value.trim().toLowerCase();
   const heroCard = document.getElementById('motivation-hero-card');
   if (!query) {
     heroCard.innerHTML = `<p class="text-xs text-slate-400 italic">Enter your name on the left to see your personalized standings ticket.</p>`;
     return;
   }
   const computed = computeLevel(activeLevel);
-  if (computed.length === 0) {
-    heroCard.innerHTML = `<p class="text-xs text-crimsonFoul font-bold">⚠️ No live data connected for this level yet.</p>`;
+  if (!computed.length) {
+    heroCard.innerHTML = `<p class="text-xs text-crimsonFoul font-bold">⚠️ No live data for this level yet.</p>`;
     return;
   }
   const match = computed.find(c => c.name.toLowerCase().includes(query));
@@ -672,66 +698,65 @@ function onAgentSearchChange() {
   }
   const globalRank = computed.findIndex(c => c.name === match.name) + 1;
 
-  // For TL: compare within region
-  let comparePool = computed;
+  // For TL view, also show regional rank
+  let regionalRankHtml = '';
   if (activeLevel === 'tl' && match.region) {
-    comparePool = computed.filter(c => c.region === match.region);
-    comparePool.sort((a,b) => {
-      if (a.eligible !== b.eligible) return b.eligible?1:-1;
-      if (b.achPercent !== a.achPercent) return b.achPercent - a.achPercent;
-      return b.score - a.score;
-    });
-  }
-  const regionRank = comparePool.findIndex(c => c.name === match.name) + 1;
-  const third = comparePool[2];
-  let varianceMsg;
-  if (!third || regionRank <= 3) {
-    varianceMsg = `<span class="text-turfGreen font-black">🔥 You're on the qualifying Podium! Keep it up to lock in your reward.</span>`;
+    const regPool = computed.filter(c => c.region === match.region);
+    const regRank = regPool.findIndex(c => c.name === match.name) + 1;
+    regionalRankHtml = ` · Regional: <strong class="text-multiBlue">#${regRank} of ${regPool.length}</strong>`;
+    const third = regPool[2];
+    var varianceMsg = !third || regRank <= 3
+      ? `<span class="text-turfGreen font-black">🔥 You're on the regional Podium! Maintain performance to lock in your reward.</span>`
+      : `You need <strong class="text-goldMedal">${Math.max(1, third.actual - match.actual).toLocaleString()} more units</strong> to reach 3rd place in ${match.region}. <span class="text-multiBlue font-bold">We Make It Possible!</span>`;
   } else {
-    const unitsDiff = Math.max(1, third.actual - match.actual);
-    varianceMsg = `You're <strong class="text-goldMedal">${unitsDiff.toLocaleString()}</strong> units behind 3rd place. <span class="text-multiBlue font-bold">We Make It Possible!</span>`;
+    const third = computed[2];
+    var varianceMsg = !third || globalRank <= 3
+      ? `<span class="text-turfGreen font-black">🔥 You're on the Podium! Maintain performance to lock in your reward.</span>`
+      : `You need <strong class="text-goldMedal">${Math.max(1, third.actual - match.actual).toLocaleString()} more units</strong> to reach 3rd place. <span class="text-multiBlue font-bold">We Make It Possible!</span>`;
   }
+
   heroCard.innerHTML = `
-    <div class="flex flex-col md:flex-row justify-between items-center w-full gap-4">
-      <div class="text-left">
-        <p class="text-[9px] text-slate-400 uppercase font-extrabold leading-none">Personal Championship Status Card</p>
-        <p class="text-lg font-black text-white mt-1">${match.name}${match.region ? ' ('+match.region+')' : ''}</p>
-        <p class="text-xs text-slate-300 mt-1">Global Rank: <strong class="text-goldMedal">#${globalRank}</strong>${activeLevel==='tl' ? ' · Regional Rank: <strong class="text-multiBlue">#'+regionRank+'</strong>' : ''}</p>
-        <p class="text-xs text-slate-300">Actual / Target: <strong class="text-white">${match.actual.toLocaleString()} / ${match.target.toLocaleString()}</strong></p>
+    <div class="flex flex-col md:flex-row justify-between items-start w-full gap-4">
+      <div>
+        <p class="text-[9px] text-slate-400 uppercase font-extrabold leading-none">Personal Championship Status</p>
+        <p class="text-lg font-black text-white mt-1">${match.name}${match.region ? ' <span class="text-slate-400 text-sm font-normal">('+match.region+')</span>' : ''}</p>
+        <p class="text-xs text-slate-300 mt-1">National: <strong class="text-goldMedal">#${globalRank} of ${computed.length}</strong>${regionalRankHtml}</p>
+        <p class="text-xs text-slate-300">Actual / Target: <strong class="text-white">${match.actual.toLocaleString()} / ${match.target.toLocaleString()}</strong> · <strong class="text-goldMedal">${Math.round(match.achPercent*100)}%</strong></p>
       </div>
-      <div class="p-3 bg-slate-950/80 rounded-xl border border-white/5 max-w-sm text-xs leading-normal">${varianceMsg}</div>
+      <div class="p-3 bg-slate-950/80 rounded-xl border border-white/5 text-xs leading-normal max-w-xs">${varianceMsg}</div>
     </div>`;
 }
 
-// ─── Toasts & confetti ────────────────────────────────────────────────────────
-function showToast(message, type='info') {
+// ═══════════════════════════════════════════════════════════════════════════════
+// UTILITIES
+// ═══════════════════════════════════════════════════════════════════════════════
+function showToast(msg, type='info') {
   const c = document.getElementById('toast-container');
-  if (!c) return;
   const t = document.createElement('div');
   let bg = 'bg-slate-900 border-multiBlue text-blue-200';
   if (type==='success') bg = 'bg-slate-900 border-turfGreen text-emerald-300';
   if (type==='warning') bg = 'bg-slate-900 border-crimsonFoul text-red-300';
   t.className = `p-3 rounded-xl border-l-4 ${bg} shadow-2xl text-xs max-w-sm flex gap-3 items-center transform translate-y-2 opacity-0 transition-all duration-300`;
-  t.innerHTML = `<span class="flex-1 font-semibold">${message}</span>`;
+  t.innerHTML = `<span class="flex-1 font-semibold">${msg}</span>`;
   c.appendChild(t);
   setTimeout(() => t.classList.remove('translate-y-2','opacity-0'), 50);
-  setTimeout(() => { t.classList.add('opacity-0','translate-y-2'); setTimeout(() => t.remove(), 300); }, 3500);
+  setTimeout(() => { t.classList.add('opacity-0','translate-y-2'); setTimeout(() => t.remove(),300); }, 4000);
 }
 
 function launchConfetti() {
-  const colors = ['#fbbf24','#10b981','#00ADEF','#ef4444'];
-  for (let i = 0; i < 40; i++) {
+  const colors = ['#fbbf24','#10b981','#00ADEF','#ef4444','#a855f7'];
+  for (let i = 0; i < 50; i++) {
     const p = document.createElement('div');
     p.className = 'confetti-piece';
-    p.style.left = Math.random()*100 + 'vw';
-    p.style.background = colors[Math.floor(Math.random()*colors.length)];
-    p.style.animationDuration = (2 + Math.random()*1.5) + 's';
+    p.style.cssText = `left:${Math.random()*100}vw;background:${colors[Math.floor(Math.random()*colors.length)]};animation-duration:${2+Math.random()*1.5}s;animation-delay:${Math.random()*0.5}s`;
     document.body.appendChild(p);
-    setTimeout(() => p.remove(), 4000);
+    setTimeout(() => p.remove(), 4500);
   }
 }
 
-// ─── Init ─────────────────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════════════════════
 resolveConfig();
 setLevel('tl');
 loadAll();
