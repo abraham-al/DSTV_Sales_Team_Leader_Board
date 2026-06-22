@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DStv Ethiopia Sales CHAMPIONSHIP</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          pitchDark:'#020617', stadiumBlue:'#0f172a', turfGreen:'#10b981',
+          goldMedal:'#fbbf24', silverMedal:'#cbd5e1', bronzeMedal:'#fb923c',
+          multiBlue:'#00ADEF', crimsonFoul:'#ef4444'
+        },
+        fontFamily: { sans: ['"Plus Jakarta Sans"','sans-serif'] }
+      }
+    }
+  }
+</script>
+<style>
+  body { font-family:'Plus Jakarta Sans',sans-serif; background:radial-gradient(circle at top,#1e1b4b 0%,#020617 100%); color:#f8fafc; }
+  .glass-card { background:rgba(15,23,42,0.7); backdrop-filter:blur(16px); -webkit-backdrop-filter:blur(16px); border:1px solid rgba(255,255,255,0.1); }
+  .stadium-glow { box-shadow:0 0 50px rgba(0,173,239,0.15); }
+  .confetti-piece { position:fixed; top:-20px; width:8px; height:14px; opacity:0.9; pointer-events:none; z-index:60; animation:confetti-fall linear forwards; }
+  @keyframes confetti-fall { to { transform:translateY(110vh) rotate(540deg); opacity:0; } }
+  @media (prefers-reduced-motion:reduce) { .confetti-piece,.animate-bounce { animation:none !important; } }
+  .level-btn { transition:all 0.15s; }
+  .level-btn.active { background:#fbbf24; color:#020617; font-weight:800; box-shadow:0 2px 12px rgba(251,191,36,0.25); }
+  .level-btn:not(.active) { color:#94a3b8; }
+  .level-btn:not(.active):hover { color:#fff; }
+</style>
+</head>
+<body class="min-h-screen pb-12">
+
+<div class="h-2 w-full flex">
+  <div class="h-full flex-1 bg-[#EE3124]"></div>
+  <div class="h-full flex-1 bg-[#F58220]"></div>
+  <div class="h-full flex-1 bg-[#FFF200]"></div>
+  <div class="h-full flex-1 bg-[#5CB85C]"></div>
+  <div class="h-full flex-1 bg-[#00ADEF]"></div>
+  <div class="h-full flex-1 bg-[#2E3192]"></div>
+  <div class="h-full flex-1 bg-[#6F2B91]"></div>
+</div>
+
+<header class="glass-card border-b border-white/10 px-4 py-4 sm:px-6">
+  <div class="max-w-7xl mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+    <div class="flex items-center gap-4">
+      <span class="font-black text-multiBlue text-2xl tracking-widest">DStv</span>
+      <div class="h-8 w-px bg-white/20 hidden md:block"></div>
+      <div>
+        <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white">
+          DSTV ETHIOPIA SALES <span class="text-goldMedal">CHAMPIONSHIP</span>
+        </h1>
+        <p class="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold">Live Leaderboard</p>
+      </div>
+    </div>
+    <div id="last-synced" class="text-[10px] text-slate-500 font-bold uppercase tracking-wide"></div>
+  </div>
+</header>
+
+<main class="max-w-7xl mx-auto px-4 py-6 space-y-6">
+
+  <!-- Tab bar — 6 views -->
+  <div class="flex flex-wrap gap-1 bg-slate-950/80 p-1.5 rounded-xl border border-white/10 justify-center">
+    <button onclick="setLevel('tl')"        id="btn-tl"        class="level-btn flex-1 min-w-[130px] px-3 py-2 text-xs font-bold rounded-lg">👥 Team Leaders</button>
+    <button onclick="setLevel('tsm')"       id="btn-tsm"       class="level-btn flex-1 min-w-[130px] px-3 py-2 text-xs font-bold rounded-lg">💼 Territory Sales Mgrs</button>
+    <button onclick="setLevel('territory')" id="btn-territory" class="level-btn flex-1 min-w-[130px] px-3 py-2 text-xs font-bold rounded-lg">🏙️ Territories</button>
+    <button onclick="setLevel('region')"    id="btn-region"    class="level-btn flex-1 min-w-[130px] px-3 py-2 text-xs font-bold rounded-lg">🌿 Regions</button>
+    <button onclick="setLevel('rhos')"      id="btn-rhos"      class="level-btn flex-1 min-w-[130px] px-3 py-2 text-xs font-bold rounded-lg">👑 Regional Heads</button>
+    <button onclick="setLevel('country')"   id="btn-country"   class="level-btn flex-1 min-w-[130px] px-3 py-2 text-xs font-bold rounded-lg">🇪🇹 National Sales</button>
+  </div>
+
+  <!-- Main podium card -->
+  <div class="glass-card rounded-2xl p-6 stadium-glow border border-multiBlue/30 relative overflow-hidden">
+    <div class="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-multiBlue via-goldMedal to-turfGreen"></div>
+    <div class="text-center mb-6">
+      <span class="text-3xl animate-bounce inline-block">🏆</span>
+      <h2 class="text-xl font-black uppercase text-white mt-1 tracking-widest" id="podium-title">TEAM LEADERS CHAMPIONS</h2>
+    </div>
+    <div class="max-w-xs mx-auto mb-6 relative">
+      <span class="absolute inset-y-0 left-0 pl-3 flex items-center text-slate-400 text-xs"><i class="fa-solid fa-search"></i></span>
+      <input type="text" id="liveSearch" oninput="render()" placeholder="Search active competitor…"
+        class="w-full bg-slate-950/80 border border-white/10 rounded-lg py-1.5 pl-8 pr-3 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-goldMedal">
+    </div>
+    <div id="empty-state" class="hidden text-center py-10 text-slate-400 text-sm">
+      <i class="fa-solid fa-satellite-dish text-2xl mb-2 block"></i>
+      No live data connected yet for this level.
+    </div>
+    <div class="flex flex-col gap-8" id="podiums-outer-container"></div>
+    <div class="mt-6 space-y-3" id="runner-ups-container"></div>
+  </div>
+
+  <!-- Check your standing -->
+  <div class="glass-card rounded-2xl p-6 border border-turfGreen/30 bg-gradient-to-b from-slate-900 to-slate-950">
+    <div class="flex items-center gap-3 mb-4 pb-2.5 border-b border-white/10">
+      <span class="text-2xl">⚡</span>
+      <div>
+        <h3 class="font-extrabold text-white text-sm uppercase tracking-wide">Check your Standing</h3>
+        <p class="text-xs text-slate-400">Search your name to calculate your variance to the top podium ranks</p>
+      </div>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-12 gap-6 items-center">
+      <div class="md:col-span-4 space-y-3">
+        <label class="block text-xs font-bold text-slate-300 uppercase tracking-wide">Enter Your Name:</label>
+        <div class="relative">
+          <input type="text" id="agent-search-input" oninput="onAgentSearchChange()" placeholder="e.g. Helen Yohannes…"
+            class="w-full bg-slate-950 border border-white/20 text-sm text-white rounded-xl py-2 px-4 focus:outline-none focus:border-turfGreen">
+          <span class="absolute right-3 top-2.5 text-slate-500 text-sm"><i class="fa-solid fa-magnifying-glass"></i></span>
+        </div>
+        <p class="text-[10px] text-slate-500">Auto-suggests instantly from active database</p>
+      </div>
+      <div class="md:col-span-8">
+        <div id="motivation-hero-card" class="bg-slate-900/60 p-4 rounded-xl border border-white/10 text-center md:text-left min-h-[110px] flex items-center justify-center">
+          <p class="text-xs text-slate-400 italic">Enter your name on the left to see your personalized standings ticket.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</main>
+
+<div id="toast-container" class="fixed bottom-5 right-5 space-y-2 z-50"></div>
+
+<script>
+// ─── Config ──────────────────────────────────────────────────────────────────
+const LEVELS = ['tl','tsm','territory','region','rhos','country'];
+// Sheets that actually hold raw data (territory/rhos/country are derived from these)
+const RAW_LEVELS = ['tl','tsm','region','country'];
+const SHEET_NAME_KEY = { tl:'dstv_sheet_name_tl', tsm:'dstv_sheet_name_tsm', region:'dstv_sheet_name_region', country:'dstv_sheet_name_country' };
+const PROXY_KEY   = 'dstv_proxy_url';
+const GOALMET_KEY = 'dstv_country_goal_met';
+
+const TITLES = {
+  tl:        'TEAM LEADERS CHAMPIONS',
+  tsm:       'TERRITORY SALES MANAGERS CHAMPIONS',
+  territory: 'BEST PERFORMING TERRITORIES',
+  region:    'REGIONAL CHAMPIONS',
+  rhos:      'REGIONAL HEADS (RHoS) RECOGNITION',
+  country:   'NATIONAL SALES RECOGNITION'
+};
+
+// Prize config per level
+const PRIZE = {
+  tl:        { perRank: [15000, 10000, 8000],  names: ['Tablet / Smart Watch','Smart Watch','Tablet'],   icon:'⌚', grand: 60000,  grandName:'Core i7 Laptop' },
+  tsm:       { perRank: [40000, 25000, 20000], names: ['High-End Phone','Smart Watch','Tablet'],          icon:'📱', grand: 100000, grandName:'TSM Champion Promo Travel' },
+  territory: { perRank: [50000, 30000, 25000], names: ['Team Exp + Trophy','Equipment Pack','Kits & Tools'], icon:'🏆', grand: 100000, grandName:'Best Territory Promo Team Trip' },
+  region:    { perRank: [150000,0,0],          names: ['Best Region Celebration','',''],                  icon:'✨', grand: 150000, grandName:'Best Region Executive Reward' },
+  rhos:      { perRank: [200000,0,0],          names: ['Executive Recognition','',''],                    icon:'👑', grand: 200000, grandName:'Regional Head Executive Reward' },
+  country:   { perRank: [],                    names: [],                                                 icon:'🇪🇹', grand: 0, grandName: '' }
+};
+
+// ─── State ────────────────────────────────────────────────────────────────────
+let activeLevel = 'tl';
+let sheetRows = { tl:[], tsm:[], region:[], country:[] };  // raw rows from sheets
+let sheetStatus = { tl:'idle', tsm:'idle', region:'idle', country:'idle' };
+let countryGoalMet = true;
+
+// ─── Boot / config resolution ─────────────────────────────────────────────────
+function resolveConfig() {
+  const params = new URLSearchParams(window.location.search);
+  const proxyParam = params.get('proxy');
+  if (proxyParam) localStorage.setItem(PROXY_KEY, proxyParam);
+  ['tl','tsm','region','country'].forEach(lv => {
+    const v = params.get(lv);
+    if (v) localStorage.setItem(SHEET_NAME_KEY[lv], v);
+  });
+  const gp = params.get('goalmet');
+  if (gp !== null) localStorage.setItem(GOALMET_KEY, gp === 'true' ? 'true' : 'false');
+  countryGoalMet = localStorage.getItem(GOALMET_KEY) !== 'false';
+}
+
+function buildFetchUrl(level) {
+  const proxy = (localStorage.getItem(PROXY_KEY) || '').trim();
+  const name  = (localStorage.getItem(SHEET_NAME_KEY[level]) || '').trim();
+  if (!proxy || !name) return null;
+  return proxy + '?sheet=' + encodeURIComponent(name);
+}
+
+// ─── Data fetching ────────────────────────────────────────────────────────────
+async function loadLevel(level) {
+  const url = buildFetchUrl(level);
+  if (!url) { sheetStatus[level] = 'empty'; sheetRows[level] = []; return; }
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    if (json && json.error) throw new Error(json.error);
+    sheetRows[level] = mapRows(json, level);
+    sheetStatus[level] = 'ok';
+  } catch(e) {
+    sheetStatus[level] = 'error';
+    sheetRows[level] = [];
+    showToast('⚠️ Could not load ' + level.toUpperCase() + ' sheet. Check Admin Setup.', 'warning');
+  }
+}
+
+async function loadAll() {
+  await Promise.all(RAW_LEVELS.map(loadLevel));
+  document.getElementById('last-synced').innerText = 'Last synced: ' + new Date().toLocaleTimeString();
+  render();
+}
+
+// ─── CSV / array → row mapping ────────────────────────────────────────────────
+function findCol(headers, aliases) {
+  const exact = headers.findIndex(h => aliases.includes(h));
+  if (exact !== -1) return exact;
+  const sorted = [...aliases].sort((a,b) => b.length - a.length);
+  return headers.findIndex(h => sorted.some(a => h.includes(a)));
+}
+function toNum(v) {
+  if (typeof v === 'number') return isNaN(v) ? 0 : v;
+  const n = parseFloat(String(v || '').replace(/[, ]/g,''));
+  return isNaN(n) ? 0 : n;
+}
+function toBool(v, fallback) {
+  if (v === undefined || v === null || String(v).trim() === '') return fallback;
+  return ['yes','true','1','clean','compliant'].includes(String(v).trim().toLowerCase());
+}
+
+function mapRows(raw, level) {
+  if (!raw || raw.length < 2) return [];
+  const headers = raw[0].map(h => String(h == null ? '' : h).trim().toLowerCase());
+  const nameIdx       = findCol(headers, ['name','leader','manager','candidate','head','regional head']);
+  const targetIdx     = findCol(headers, ['target','goal','quota']);
+  const actualIdx     = findCol(headers, ['actual','sales','activation','nns']);
+  const disciplineIdx = findCol(headers, ['discipline','compliant','conduct','clean']);
+  const regionIdx     = findCol(headers, ['region','zone']);
+  const territoryIdx  = findCol(headers, ['territory','city','place']);
+  const tsmIdx        = findCol(headers, ['tsm','territory sales manager']);
+  const headIdx       = findCol(headers, ['head','regional head']);
+  const fssIdx        = findCol(headers, ['fss']);
+  if (nameIdx === -1 || targetIdx === -1 || actualIdx === -1) return [];
+  const out = [];
+  for (let i = 1; i < raw.length; i++) {
+    const c = raw[i];
+    const name = String(c[nameIdx] == null ? '' : c[nameIdx]).trim();
+    if (!name) continue;
+    out.push({
+      name,
+      target:     toNum(c[targetIdx]),
+      actual:     toNum(c[actualIdx]),
+      discipline: disciplineIdx !== -1 ? toBool(c[disciplineIdx], true) : true,
+      region:     regionIdx     !== -1 ? String(c[regionIdx]    || '').trim() : '',
+      territory:  territoryIdx  !== -1 ? String(c[territoryIdx] || '').trim() : '',
+      tsm:        tsmIdx        !== -1 ? String(c[tsmIdx]       || '').trim() : '',
+      head:       headIdx       !== -1 ? String(c[headIdx]      || '').trim() : '',
+      fss:        fssIdx        !== -1 ? Math.max(0, Math.min(3, toNum(c[fssIdx]))) : 0,
+    });
+  }
+  return out;
+}
+
+// ─── Derivation: Territory from TL sheet ──────────────────────────────────────
+// TL sheet has columns: name, territory, region, tsm, target, actual, discipline
+// We roll up by territory name.
+function deriveTerritories() {
+  const rows = sheetRows.tl;
+  const map = new Map();
+  rows.forEach(r => {
+    const key = (r.territory || r.name).toLowerCase();
+    if (!map.has(key)) {
+      map.set(key, { name: r.territory || r.name, region: r.region, tsm: r.tsm, target:0, actual:0, disciplineOk:0, count:0, fssSum:0 });
+    }
+    const b = map.get(key);
+    b.target += r.target;
+    b.actual += r.actual;
+    b.count++;
+    if (r.discipline) b.disciplineOk++;
+    b.fssSum += r.fss || 0;
+  });
+  return Array.from(map.values()).map(b => ({
+    name:       b.name,
+    region:     b.region,
+    tsm:        b.tsm,
+    target:     b.target,
+    actual:     b.actual,
+    discipline: b.count > 0 && b.disciplineOk === b.count,
+    fss:        b.count > 0 ? Math.round((b.fssSum / b.count) * 10) / 10 : 0,
+  }));
+}
+
+// ─── Derivation: RHoS from Region sheet ───────────────────────────────────────
+// Region sheet columns: name (region name), head (regional head), target, actual, discipline
+// RHoS view = same data, but we display head name instead of region name.
+function deriveRHoS() {
+  return sheetRows.region.map(r => ({
+    name:       r.head || r.name,   // head column, fallback to name
+    regionName: r.name,
+    target:     r.target,
+    actual:     r.actual,
+    discipline: r.discipline,
+    fss:        r.fss,
+  }));
+}
+
+// ─── Scoring ──────────────────────────────────────────────────────────────────
+function achPts(pct) { return pct < 0.95 ? 0 : Math.min(95, 95 * Math.min(1.10, pct)); }
+
+function computeLevel(level) {
+  let pool = [];
+
+  if (level === 'tl') {
+    pool = sheetRows.tl.map(r => {
+      const achPercent = r.target > 0 ? r.actual / r.target : 0;
+      const score = achPts(achPercent) + (r.discipline ? 5 : 0);
+      const eligible = r.target > 0 && score >= 95 && r.discipline;
+      return { ...r, achPercent, score, eligible,
+        detail: r.territory ? 'Territory: ' + r.territory : r.region,
+        prizeBase: eligible ? 'tl' : null };
+    });
+
+  } else if (level === 'tsm') {
+    pool = sheetRows.tsm.map(r => {
+      const achPercent = r.target > 0 ? r.actual / r.target : 0;
+      const score = achPts(achPercent) + (r.discipline ? 2 : 0) + (r.fss || 0);
+      const eligible = r.target > 0 && score >= 95 && r.discipline;
+      return { ...r, achPercent, score, eligible,
+        detail: r.territory || r.region || '',
+        prizeBase: eligible ? 'tsm' : null };
+    });
+
+  } else if (level === 'territory') {
+    if (sheetRows.tl.length === 0) return [];
+    pool = deriveTerritories().map(r => {
+      const achPercent = r.target > 0 ? r.actual / r.target : 0;
+      const score = achPts(achPercent) + (r.discipline ? 5 : 0);
+      const eligible = r.target > 0 && score >= 95 && r.discipline;
+      return { ...r, achPercent, score, eligible,
+        detail: r.tsm ? 'TSM: ' + r.tsm : r.region,
+        prizeBase: eligible ? 'territory' : null };
+    });
+
+  } else if (level === 'region') {
+    pool = sheetRows.region.map(r => {
+      const achPercent = r.target > 0 ? r.actual / r.target : 0;
+      const score = achPts(achPercent) + 5;
+      const eligible = r.target > 0 && score >= 95;
+      return { ...r, achPercent, score, eligible,
+        detail: r.head ? 'Head: ' + r.head : '',
+        grandPrizeEligibility: eligible && countryGoalMet,
+        prizeBase: eligible ? 'region' : null };
+    });
+
+  } else if (level === 'rhos') {
+    if (sheetRows.region.length === 0) return [];
+    pool = deriveRHoS().map(r => {
+      const achPercent = r.target > 0 ? r.actual / r.target : 0;
+      const score = achPts(achPercent) + 5;
+      const eligible = r.target > 0 && score >= 95;
+      return { ...r, achPercent, score, eligible,
+        region: r.regionName,
+        detail: r.regionName + ' Region',
+        grandPrizeEligibility: eligible && countryGoalMet,
+        prizeBase: eligible ? 'rhos' : null };
+    });
+
+  } else if (level === 'country') {
+    pool = sheetRows.country.map(r => {
+      const achPercent = r.target > 0 ? r.actual / r.target : 0;
+      const score = achPts(achPercent) + 5;
+      const eligible = r.target > 0 && score >= 95;
+      return { ...r, achPercent, score, eligible,
+        detail: r.head ? 'Head of Sales' : 'National',
+        grandPrizeEligibility: false,
+        prizeBase: null };
+    });
+  }
+
+  // Sort: eligible first, then by achPercent desc, then score desc
+  pool.sort((a, b) => {
+    if (a.eligible !== b.eligible) return b.eligible ? 1 : -1;
+    if (b.achPercent !== a.achPercent) return b.achPercent - a.achPercent;
+    return b.score - a.score;
+  });
+
+  // Assign grand prize eligibility for region/rhos (only top eligible wins)
+  if (level === 'region' || level === 'rhos') {
+    const topEl = pool.find(r => r.eligible && countryGoalMet);
+    pool.forEach(r => { r.grandPrizeEligibility = false; });
+    if (topEl) topEl.grandPrizeEligibility = true;
+  }
+
+  return pool;
+}
+
+// ─── Rendering ────────────────────────────────────────────────────────────────
+function setLevel(level) {
+  activeLevel = level;
+  LEVELS.forEach(l => {
+    const btn = document.getElementById('btn-' + l);
+    btn.classList.toggle('active', l === level);
+  });
+  document.getElementById('podium-title').innerText = TITLES[level];
+  document.getElementById('liveSearch').value = '';
+  render();
+}
+
+function render() {
+  const podOuter  = document.getElementById('podiums-outer-container');
+  const runners   = document.getElementById('runner-ups-container');
+  const emptyEl   = document.getElementById('empty-state');
+  podOuter.innerHTML = '';
+  runners.innerHTML  = '';
+
+  // For territory and rhos, the raw data source is tl / region respectively
+  const sourceLevel = activeLevel === 'territory' ? 'tl'
+                    : activeLevel === 'rhos'      ? 'region'
+                    : activeLevel;
+
+  const sourceOk = RAW_LEVELS.includes(sourceLevel)
+    ? (sheetStatus[sourceLevel] === 'ok' && sheetRows[sourceLevel].length > 0)
+    : true;
+
+  if (!sourceOk) { emptyEl.classList.remove('hidden'); return; }
+  emptyEl.classList.add('hidden');
+
+  const search   = document.getElementById('liveSearch').value.toLowerCase();
+  let computed   = computeLevel(activeLevel);
+  if (search) computed = computed.filter(c => c.name.toLowerCase().includes(search));
+  if (computed.length === 0) { emptyEl.classList.remove('hidden'); return; }
+
+  // TL view: one podium per region
+  if (activeLevel === 'tl') {
+    renderTLByRegion(podOuter, computed);
+  } else {
+    renderSinglePodium(podOuter, runners, computed, activeLevel);
+  }
+}
+
+// ── TL: podium per region ─────────────────────────────────────────────────────
+function renderTLByRegion(container, computed) {
+  // Gather unique regions in order of appearance
+  const regionOrder = [];
+  computed.forEach(c => {
+    if (c.region && !regionOrder.includes(c.region)) regionOrder.push(c.region);
+  });
+
+  regionOrder.forEach(regionName => {
+    const regionRows = computed.filter(c => c.region === regionName);
+
+    const regCard = document.createElement('div');
+    regCard.className = 'p-5 bg-slate-900/40 rounded-2xl border border-white/5 space-y-4';
+    regCard.innerHTML = `
+      <div class="flex items-center justify-between border-b border-white/5 pb-2.5">
+        <h3 class="font-extrabold text-sm text-goldMedal flex items-center gap-1.5 uppercase tracking-wider">
+          📍 ${regionName} Region
+        </h3>
+        <span class="text-[10px] text-slate-500 font-semibold">${regionRows.length} TLs</span>
+      </div>
+      <div class="flex flex-col sm:flex-row items-center sm:items-end justify-center gap-4 sm:gap-6 pt-2 w-full" id="podium-reg-${regionName.replace(/\s/g,'_')}"></div>
+    `;
+    container.appendChild(regCard);
+
+    const podDiv = document.getElementById('podium-reg-' + regionName.replace(/\s/g,'_'));
+    const top3   = regionRows.slice(0, 3);
+    const order  = [[1,top3[1],'border-slate-400','h-40 sm:h-48','🥈','scale-95'],
+                    [0,top3[0],'border-goldMedal', 'h-48 sm:h-60','🥇','scale-110 z-10'],
+                    [2,top3[2],'border-orange-400','h-32 sm:h-40','🥉','scale-90']];
+
+    order.forEach(([idx, item, borderCls, heightCls, medal, scaleCls]) => {
+      if (!item) return;
+      const prz = PRIZE.tl;
+      const rewardHtml = item.eligible
+        ? `<div class="mt-2 p-1.5 bg-slate-950/80 rounded-lg border border-goldMedal/30 text-center">
+             <span class="block text-xs text-goldMedal font-black">${prz.perRank[idx].toLocaleString()} ETB</span>
+             <span class="text-[8px] text-slate-300 font-bold">${prz.names[idx]}</span>
+           </div>`
+        : `<span class="block text-xs text-red-400 font-extrabold mt-1">Qualification Pending</span>`;
+
+      const el = document.createElement('div');
+      el.className = `flex flex-col items-center w-full sm:w-44 text-center transform hover:scale-105 transition-all ${scaleCls}`;
+      el.innerHTML = `
+        <div class="text-4xl mb-1">${medal}</div>
+        <div class="text-sm font-black text-white truncate w-full px-1">${item.name}</div>
+        <div class="text-xs text-slate-400 truncate w-full mb-1">${item.detail}</div>
+        <div class="w-full ${heightCls} bg-gradient-to-t from-slate-950 to-slate-900 border-t-8 ${borderCls} rounded-t-2xl mt-2 flex flex-col justify-between p-3 shadow-2xl">
+          <div class="flex items-start justify-between">
+            <span class="text-[8px] text-slate-500 font-extrabold uppercase">Rank</span>
+            <span class="text-2xl font-black text-white/10 leading-none">${idx+1}</span>
+          </div>
+          <div class="space-y-1">
+            <div class="flex justify-between items-baseline">
+              <span class="text-[9px] text-slate-400 font-bold uppercase">Actual</span>
+              <span class="text-xs font-black text-turfGreen">${item.actual.toLocaleString()}</span>
+            </div>
+            <div class="flex justify-between items-baseline">
+              <span class="text-[9px] text-slate-400 font-bold uppercase">Target</span>
+              <span class="text-xs font-black text-slate-200">${item.target.toLocaleString()}</span>
+            </div>
+            <div class="flex justify-between items-baseline pt-1 border-t border-white/10">
+              <span class="text-[9px] text-slate-400 font-bold uppercase">Ach%</span>
+              <span class="text-xs font-black text-goldMedal">${Math.round(item.achPercent*100)}%</span>
+            </div>
+          </div>
+          ${rewardHtml}
+        </div>`;
+      podDiv.appendChild(el);
+    });
+
+    // Regional runner-ups 4th & 5th
+    const runnerUps = regionRows.slice(3, 5);
+    if (runnerUps.length > 0) {
+      const runnersWrap = document.createElement('div');
+      runnersWrap.className = 'grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 pt-3 border-t border-white/5';
+      regCard.appendChild(runnersWrap);
+      runnerUps.forEach((r, i) => {
+        const prizeTag = r.eligible
+          ? `<span class="text-xs font-extrabold text-goldMedal">🎁 ${PRIZE.tl.perRank[3+i] || 0} ETB — ${PRIZE.tl.names[3+i] || ''}</span>`
+          : `<span class="text-xs text-red-400">Qualification Pending</span>`;
+        const card = document.createElement('div');
+        card.className = 'p-3 bg-slate-950/40 rounded-xl text-xs flex justify-between items-center';
+        card.innerHTML = `
+          <div>
+            <span class="font-bold text-slate-400">#${i+4}</span>
+            <span class="text-white font-bold ml-1">${r.name}</span>
+            <span class="text-slate-500 text-[10px] block">${r.detail}</span>
+          </div>
+          <div class="text-right">
+            <span class="text-slate-300 font-bold block">${r.actual.toLocaleString()} / ${r.target.toLocaleString()} (${Math.round(r.achPercent*100)}%)</span>
+            ${prizeTag}
+          </div>`;
+        runnersWrap.appendChild(card);
+      });
+    }
+  });
+
+  // Overall TL grand prize banner
+  const grandWinner = computed.find(c => c.eligible);
+  if (grandWinner) {
+    const banner = document.createElement('div');
+    banner.className = 'p-5 bg-gradient-to-r from-yellow-600/20 via-slate-900 to-yellow-600/20 rounded-xl border border-goldMedal/30 text-center';
+    banner.innerHTML = `
+      <p class="text-xs font-black uppercase text-goldMedal tracking-widest mb-1">🔥 Overall Champion</p>
+      <p class="text-xl font-black text-white">${grandWinner.name} <span class="text-slate-400 text-sm font-semibold">(${grandWinner.region})</span></p>
+      <div class="flex items-center justify-center gap-3 mt-2 text-sm text-slate-300">
+        <span class="text-4xl">💻</span>
+        <div class="text-left leading-snug">
+          Overall grand prize: <strong class="text-goldMedal">${PRIZE.tl.grandName} (${PRIZE.tl.grand.toLocaleString()} ETB)</strong>
+          <br/><span class="text-xs text-slate-400">Ach: ${Math.round(grandWinner.achPercent*100)}% · Sold: ${grandWinner.actual.toLocaleString()} / ${grandWinner.target.toLocaleString()}</span>
+        </div>
+      </div>`;
+    container.prepend(banner);
+    launchConfetti();
+  }
+}
+
+// ── Single unified podium (TSM / Territory / Region / RHoS / Country) ─────────
+function renderSinglePodium(container, runnersContainer, computed, level) {
+  const prz = PRIZE[level];
+
+  // Grand prize banner
+  const grandWinner = computed.find(c => c.grandPrizeEligibility);
+  if (grandWinner && prz.grand > 0) {
+    const banner = document.createElement('div');
+    banner.className = 'p-5 bg-gradient-to-r from-yellow-600/20 via-slate-900 to-yellow-600/20 rounded-xl border border-goldMedal/30 text-center';
+    banner.innerHTML = `
+      <p class="text-xs font-black uppercase text-goldMedal tracking-widest mb-1">🔥 Grand Prize Winner</p>
+      <p class="text-xl font-black text-white">${grandWinner.name} <span class="text-slate-400 text-sm font-semibold">(${grandWinner.region || ''})</span></p>
+      <div class="flex items-center justify-center gap-3 mt-2 text-sm text-slate-300">
+        <span class="text-4xl">${prz.icon}</span>
+        <div class="text-left leading-snug">
+          Grand prize: <strong class="text-goldMedal">${prz.grandName} (${prz.grand.toLocaleString()} ETB)</strong>
+          <br/><span class="text-xs text-slate-400">Ach: ${Math.round(grandWinner.achPercent*100)}% · Sold: ${grandWinner.actual.toLocaleString()} / ${grandWinner.target.toLocaleString()}</span>
+        </div>
+      </div>`;
+    container.appendChild(banner);
+    launchConfetti();
+  }
+
+  const podRow = document.createElement('div');
+  podRow.className = 'flex flex-col sm:flex-row items-center sm:items-end justify-center gap-4 sm:gap-8 pt-4 pb-2 w-full';
+  container.appendChild(podRow);
+
+  const top3  = computed.slice(0, 3);
+  const order = [[1,top3[1],'border-slate-400','h-44 sm:h-56','🥈','scale-95'],
+                 [0,top3[0],'border-goldMedal','h-52 sm:h-72','🥇','scale-110 z-10'],
+                 [2,top3[2],'border-orange-400','h-36 sm:h-44','🥉','scale-90']];
+
+  order.forEach(([idx, item, borderCls, heightCls, medal, scaleCls]) => {
+    if (!item) return;
+    const rankPrize = prz.perRank[idx] || 0;
+    const rankName  = prz.names[idx]   || '';
+
+    const rewardHtml = level === 'country'
+      ? ''
+      : (rankPrize > 0
+          ? `<div class="mt-2 p-1.5 bg-slate-950/80 rounded-lg border border-goldMedal/30 text-center">
+               <span class="text-2xl">${prz.icon}</span>
+               <span class="block text-xs text-goldMedal font-black mt-0.5">${rankPrize.toLocaleString()} ETB</span>
+               <span class="text-[8px] text-slate-300 font-bold">${rankName}</span>
+             </div>`
+          : `<span class="block text-xs text-red-400 font-extrabold mt-1">⏳ Not Yet Qualified</span>`);
+
+    const el = document.createElement('div');
+    el.className = `flex flex-col items-center w-full sm:w-48 text-center transform hover:scale-105 transition-all ${scaleCls}`;
+    el.innerHTML = `
+      <div class="text-4xl mb-1">${medal}</div>
+      <div class="text-base font-black text-white truncate w-full px-1">${item.name}</div>
+      <div class="text-xs text-slate-400 truncate w-full mb-1">${item.detail || ''}</div>
+      <div class="w-full ${heightCls} bg-gradient-to-t from-slate-900 to-slate-800/90 border-t-8 ${borderCls} rounded-t-2xl mt-3 flex flex-col justify-between p-4 shadow-2xl">
+        <div class="flex items-start justify-between">
+          <span class="text-[9px] text-slate-500 font-extrabold uppercase">Rank</span>
+          <span class="text-3xl font-black text-white/20 leading-none">${idx+1}</span>
+        </div>
+        <div class="space-y-1">
+          <div class="flex justify-between items-baseline">
+            <span class="text-[10px] text-slate-400 font-bold uppercase">Actual</span>
+            <span class="text-sm font-black text-turfGreen">${item.actual.toLocaleString()}</span>
+          </div>
+          <div class="flex justify-between items-baseline">
+            <span class="text-[10px] text-slate-400 font-bold uppercase">Target</span>
+            <span class="text-sm font-black text-slate-200">${item.target.toLocaleString()}</span>
+          </div>
+          <div class="flex justify-between items-baseline pt-1 border-t border-white/10">
+            <span class="text-[10px] text-slate-400 font-bold uppercase">Ach%</span>
+            <span class="text-sm font-black text-goldMedal">${Math.round(item.achPercent*100)}%</span>
+          </div>
+        </div>
+        ${rewardHtml}
+      </div>`;
+    podRow.appendChild(el);
+  });
+
+  // 4th & 5th
+  computed.slice(3, 5).forEach((item, i) => {
+    const prizeTag = level === 'country'
+      ? ''
+      : (item.eligible
+          ? `<span class="text-xs font-extrabold text-goldMedal">🎁 ${item.eligible ? (prz.perRank[3+i]||0).toLocaleString() + ' ETB' : ''}</span>`
+          : `<span class="text-xs text-red-400">Qualification Pending</span>`);
+    const card = document.createElement('div');
+    card.className = 'p-3 bg-slate-900/60 rounded-xl border border-white/5 flex items-center justify-between';
+    card.innerHTML = `
+      <div class="flex items-center gap-3">
+        <span class="text-xs font-bold text-slate-500">#${i+4}</span>
+        <div>
+          <p class="text-xs font-bold text-white">${item.name}</p>
+          <p class="text-[9px] text-slate-400">${item.detail || ''}</p>
+        </div>
+      </div>
+      <div class="text-right">
+        <p class="text-xs font-bold text-slate-200">${item.actual.toLocaleString()} / ${item.target.toLocaleString()} (${Math.round(item.achPercent*100)}%)</p>
+        ${prizeTag}
+      </div>`;
+    runnersContainer.appendChild(card);
+  });
+}
+
+// ─── Check your standing ──────────────────────────────────────────────────────
+function onAgentSearchChange() {
+  const query   = document.getElementById('agent-search-input').value.trim().toLowerCase();
+  const heroCard = document.getElementById('motivation-hero-card');
+  if (!query) {
+    heroCard.innerHTML = `<p class="text-xs text-slate-400 italic">Enter your name on the left to see your personalized standings ticket.</p>`;
+    return;
+  }
+  const computed = computeLevel(activeLevel);
+  if (computed.length === 0) {
+    heroCard.innerHTML = `<p class="text-xs text-crimsonFoul font-bold">⚠️ No live data connected for this level yet.</p>`;
+    return;
+  }
+  const match = computed.find(c => c.name.toLowerCase().includes(query));
+  if (!match) {
+    heroCard.innerHTML = `<p class="text-xs text-crimsonFoul font-bold">⚠️ No matching name found. Check spelling.</p>`;
+    return;
+  }
+  const globalRank = computed.findIndex(c => c.name === match.name) + 1;
+
+  // For TL: compare within region
+  let comparePool = computed;
+  if (activeLevel === 'tl' && match.region) {
+    comparePool = computed.filter(c => c.region === match.region);
+    comparePool.sort((a,b) => {
+      if (a.eligible !== b.eligible) return b.eligible?1:-1;
+      if (b.achPercent !== a.achPercent) return b.achPercent - a.achPercent;
+      return b.score - a.score;
+    });
+  }
+  const regionRank = comparePool.findIndex(c => c.name === match.name) + 1;
+  const third = comparePool[2];
+  let varianceMsg;
+  if (!third || regionRank <= 3) {
+    varianceMsg = `<span class="text-turfGreen font-black">🔥 You're on the qualifying Podium! Keep it up to lock in your reward.</span>`;
+  } else {
+    const unitsDiff = Math.max(1, third.actual - match.actual);
+    varianceMsg = `You're <strong class="text-goldMedal">${unitsDiff.toLocaleString()}</strong> units behind 3rd place. <span class="text-multiBlue font-bold">We Make It Possible!</span>`;
+  }
+  heroCard.innerHTML = `
+    <div class="flex flex-col md:flex-row justify-between items-center w-full gap-4">
+      <div class="text-left">
+        <p class="text-[9px] text-slate-400 uppercase font-extrabold leading-none">Personal Championship Status Card</p>
+        <p class="text-lg font-black text-white mt-1">${match.name}${match.region ? ' ('+match.region+')' : ''}</p>
+        <p class="text-xs text-slate-300 mt-1">Global Rank: <strong class="text-goldMedal">#${globalRank}</strong>${activeLevel==='tl' ? ' · Regional Rank: <strong class="text-multiBlue">#'+regionRank+'</strong>' : ''}</p>
+        <p class="text-xs text-slate-300">Actual / Target: <strong class="text-white">${match.actual.toLocaleString()} / ${match.target.toLocaleString()}</strong></p>
+      </div>
+      <div class="p-3 bg-slate-950/80 rounded-xl border border-white/5 max-w-sm text-xs leading-normal">${varianceMsg}</div>
+    </div>`;
+}
+
+// ─── Toasts & confetti ────────────────────────────────────────────────────────
+function showToast(message, type='info') {
+  const c = document.getElementById('toast-container');
+  if (!c) return;
+  const t = document.createElement('div');
+  let bg = 'bg-slate-900 border-multiBlue text-blue-200';
+  if (type==='success') bg = 'bg-slate-900 border-turfGreen text-emerald-300';
+  if (type==='warning') bg = 'bg-slate-900 border-crimsonFoul text-red-300';
+  t.className = `p-3 rounded-xl border-l-4 ${bg} shadow-2xl text-xs max-w-sm flex gap-3 items-center transform translate-y-2 opacity-0 transition-all duration-300`;
+  t.innerHTML = `<span class="flex-1 font-semibold">${message}</span>`;
+  c.appendChild(t);
+  setTimeout(() => t.classList.remove('translate-y-2','opacity-0'), 50);
+  setTimeout(() => { t.classList.add('opacity-0','translate-y-2'); setTimeout(() => t.remove(), 300); }, 3500);
+}
+
+function launchConfetti() {
+  const colors = ['#fbbf24','#10b981','#00ADEF','#ef4444'];
+  for (let i = 0; i < 40; i++) {
+    const p = document.createElement('div');
+    p.className = 'confetti-piece';
+    p.style.left = Math.random()*100 + 'vw';
+    p.style.background = colors[Math.floor(Math.random()*colors.length)];
+    p.style.animationDuration = (2 + Math.random()*1.5) + 's';
+    document.body.appendChild(p);
+    setTimeout(() => p.remove(), 4000);
+  }
+}
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+resolveConfig();
+setLevel('tl');
+loadAll();
+</script>
+</body>
+</html>
