@@ -164,7 +164,7 @@
         <span class="step-num">4</span>
         <h3 class="text-xs font-black uppercase tracking-wide text-goldMedal">Generate Dashboard Link</h3>
       </div>
-      <p class="text-[11px] text-slate-400 mb-3 pl-7">Builds a portable URL that encodes the Apps Script URL, sheet names, and target gate into dashboard.html's query parameters.</p>
+      <p class="text-[11px] text-slate-400 mb-3 pl-7">Builds a permanent URL with config encoded in the <strong class="text-slate-200">#hash</strong> — survives page refresh and bookmarking on GitHub Pages.</p>
       <div class="pl-7">
         <button onclick="generateLink()" class="px-5 py-2 bg-gradient-to-r from-goldMedal to-yellow-500 text-slate-950 font-black text-xs rounded-lg uppercase tracking-wider shadow-md">Generate Dashboard Link</button>
         <div id="generated-link-box" class="hidden mt-3 flex gap-2">
@@ -281,7 +281,12 @@ function generateLink() {
   const proxyUrl = localStorage.getItem(PROXY_KEY);
   if (!proxyUrl) { showToast('Save the Apps Script URL first (Step 2).', 'warning'); return; }
 
-  const base = new URL('dashboard.html', window.location.href);
+  // Encode everything into the URL HASH (#) so the link survives:
+  //   • F5 / Ctrl+R refresh on GitHub Pages
+  //   • Bookmarking
+  //   • Sharing as a plain link (no server round-trip strips the hash)
+  const base   = new URL('dashboard.html', window.location.href);
+  base.search  = '';   // clear any stale query params
   const params = new URLSearchParams();
   params.set('proxy', proxyUrl);
   SECTIONS.forEach(s => {
@@ -289,7 +294,7 @@ function generateLink() {
     if (name) params.set(s.param, name);
   });
   params.set('goalmet', localStorage.getItem(GOALMET_KEY) !== 'false' ? 'true' : 'false');
-  base.search = params.toString();
+  base.hash = params.toString();   // ← this is the fix: #proxy=…&tl=…&…
 
   document.getElementById('generated-link-input').value = base.toString();
   document.getElementById('generated-link-box').classList.remove('hidden');
