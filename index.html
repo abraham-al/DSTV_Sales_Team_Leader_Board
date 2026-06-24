@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script>
   tailwind.config = {
     theme: {
@@ -34,6 +35,11 @@
   .level-btn.active { background:#fbbf24; color:#020617; font-weight:800; box-shadow:0 2px 12px rgba(251,191,36,0.25); }
   .level-btn:not(.active) { color:#94a3b8; }
   .level-btn:not(.active):hover { color:#fff; }
+
+  /* Screenshot overlay */
+  #screenshot-overlay { position:fixed; inset:0; background:rgba(2,6,23,0.92); z-index:200; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:16px; backdrop-filter:blur(8px); }
+  #screenshot-overlay.hidden { display:none; }
+  .ss-progress-bar { height:6px; border-radius:3px; background:#fbbf24; transition:width 0.4s ease; }
 </style>
 </head>
 <body class="min-h-screen pb-12">
@@ -55,12 +61,22 @@
       <div class="h-8 w-px bg-white/20 hidden md:block"></div>
       <div>
         <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white">
-          DSTV ETHIOPIA SALES TEAM <span class="text-goldMedal">CHAMPIONSHIP</span>
+          DSTV ETHIOPIA SALES <span class="text-goldMedal">CHAMPIONSHIP</span>
         </h1>
         <p class="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold">Live Leaderboard</p>
       </div>
     </div>
-    <div id="last-synced" class="text-[10px] text-slate-500 font-bold uppercase tracking-wide"></div>
+    <div class="flex items-center gap-3">
+      <div id="last-synced" class="text-[10px] text-slate-500 font-bold uppercase tracking-wide hidden md:block"></div>
+      <button onclick="screenshotCurrentPage()" title="Screenshot current tab"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-white/10 text-xs font-bold text-slate-300 hover:text-white transition whitespace-nowrap">
+        <i class="fa-solid fa-camera"></i> <span class="hidden sm:inline">Screenshot</span>
+      </button>
+      <button onclick="screenshotAllPages()" title="Screenshot all 6 tabs"
+        class="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-goldMedal to-yellow-500 text-slate-950 text-xs font-black transition whitespace-nowrap hover:opacity-90">
+        <i class="fa-solid fa-images"></i> <span class="hidden sm:inline">All Pages</span>
+      </button>
+    </div>
   </div>
 </header>
 
@@ -138,6 +154,19 @@
   </div>
 
 </main>
+
+<!-- Screenshot overlay -->
+<div id="screenshot-overlay" class="hidden">
+  <div class="text-4xl">📸</div>
+  <p class="text-white font-black text-lg tracking-wide" id="ss-label">Capturing screenshots…</p>
+  <div class="w-64 bg-slate-800 rounded-full overflow-hidden h-1.5">
+    <div class="ss-progress-bar" id="ss-progress" style="width:0%"></div>
+  </div>
+  <p class="text-slate-400 text-xs" id="ss-sub">Preparing…</p>
+  <button onclick="document.getElementById('screenshot-overlay').classList.add('hidden')" class="mt-2 px-4 py-1.5 rounded-lg bg-slate-700 text-xs text-slate-300 font-bold hover:bg-slate-600 transition">Cancel</button>
+</div>
+
+
 <div id="toast-container" class="fixed bottom-5 right-5 space-y-2 z-50"></div>
 
 <script>
@@ -872,6 +901,117 @@ function renderDebugPanel() {
 resolveConfig();
 setLevel('tl');
 loadAll().then(renderDebugPanel);
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// SCREENSHOT
+// ═══════════════════════════════════════════════════════════════════════════════
+
+async function captureFullPage(filename) {
+  // Temporarily expand body height to capture everything without scroll clipping
+  const originalOverflow = document.body.style.overflow;
+  document.body.style.overflow = 'visible';
+
+  // Wait a frame for layout to settle
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  const canvas = await html2canvas(document.body, {
+    backgroundColor: '#020617',
+    scale: 2,                    // 2× for crisp retina output
+    useCORS: true,
+    allowTaint: true,
+    scrollX: 0,
+    scrollY: 0,
+    windowWidth: document.body.scrollWidth,
+    windowHeight: document.body.scrollHeight,
+    ignoreElements: el =>
+      el.id === 'screenshot-overlay' ||      // hide the overlay itself
+      el.id === 'toast-container' ||          // hide toasts
+      el.classList.contains('confetti-piece') // hide confetti
+  });
+
+  document.body.style.overflow = originalOverflow;
+
+  // Download
+  const link = document.createElement('a');
+  link.download = filename;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+}
+
+async function screenshotCurrentPage() {
+  const label  = TITLES[activeLevel] || activeLevel.toUpperCase();
+  const ts     = new Date().toISOString().slice(0,10);
+  const filename = `DStv_Championship_${activeLevel.toUpperCase()}_${ts}.png`;
+
+  const overlay = document.getElementById('screenshot-overlay');
+  const ssLabel = document.getElementById('ss-label');
+  const ssSub   = document.getElementById('ss-sub');
+  const ssBar   = document.getElementById('ss-progress');
+
+  overlay.classList.remove('hidden');
+  ssLabel.textContent = 'Capturing ' + label + '…';
+  ssSub.textContent   = 'Rendering full page…';
+  ssBar.style.width   = '30%';
+
+  // Let the overlay render first, then capture (overlay is excluded via ignoreElements)
+  await new Promise(r => setTimeout(r, 120));
+  ssBar.style.width = '70%';
+
+  try {
+    await captureFullPage(filename);
+    ssBar.style.width   = '100%';
+    ssSub.textContent   = '✅ Saved as ' + filename;
+    setTimeout(() => overlay.classList.add('hidden'), 1800);
+  } catch(e) {
+    ssSub.textContent = '❌ Screenshot failed: ' + e.message;
+    setTimeout(() => overlay.classList.add('hidden'), 3000);
+  }
+}
+
+async function screenshotAllPages() {
+  const overlay = document.getElementById('screenshot-overlay');
+  const ssLabel = document.getElementById('ss-label');
+  const ssSub   = document.getElementById('ss-sub');
+  const ssBar   = document.getElementById('ss-progress');
+  const ts      = new Date().toISOString().slice(0,10);
+
+  overlay.classList.remove('hidden');
+  const tabs = ['tl','tsm','territory','region','rhos','country'];
+
+  for (let i = 0; i < tabs.length; i++) {
+    const lv = tabs[i];
+    const pct = Math.round(((i) / tabs.length) * 100);
+
+    ssLabel.textContent = `Capturing ${i+1} of ${tabs.length}: ${TITLES[lv]}`;
+    ssSub.textContent   = 'Switching tab…';
+    ssBar.style.width   = pct + '%';
+
+    // Switch tab and wait for render
+    setLevel(lv);
+    await new Promise(r => setTimeout(r, 600));   // let data render
+
+    ssSub.textContent = 'Taking screenshot…';
+    await new Promise(r => setTimeout(r, 80));
+
+    const filename = `DStv_Championship_${String(i+1).padStart(2,'0')}_${lv.toUpperCase()}_${ts}.png`;
+    try {
+      await captureFullPage(filename);
+    } catch(e) {
+      ssSub.textContent = '⚠️ ' + lv + ' failed: ' + e.message;
+      await new Promise(r => setTimeout(r, 1000));
+    }
+
+    ssBar.style.width = Math.round(((i+1) / tabs.length) * 100) + '%';
+    // Small gap between downloads so browser doesn't block them
+    await new Promise(r => setTimeout(r, 400));
+  }
+
+  ssLabel.textContent = '✅ All ' + tabs.length + ' screenshots downloaded!';
+  ssSub.textContent   = 'Check your Downloads folder.';
+  ssBar.style.width   = '100%';
+  setTimeout(() => overlay.classList.add('hidden'), 2500);
+}
+
 </script>
 </body>
 </html>
