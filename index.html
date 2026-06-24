@@ -55,7 +55,7 @@
       <div class="h-8 w-px bg-white/20 hidden md:block"></div>
       <div>
         <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white">
-          DSTV ETHIOPIA SALES <span class="text-goldMedal">CHAMPIONSHIPss</span>
+          DSTV ETHIOPIA SALES TEAM <span class="text-goldMedal">CHAMPIONSHIP</span>
         </h1>
         <p class="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold">Live Leaderboard</p>
       </div>
@@ -298,9 +298,9 @@ function findCol(headers, aliases) {
 }
 
 function toNum(v) {
-  if (typeof v === 'number') return isNaN(v) ? 0 : v;
+  if (typeof v === 'number') return isNaN(v) ? 0 : Math.floor(v);
   const n = parseFloat(String(v == null ? '' : v).replace(/[,%\s]/g, ''));
-  return isNaN(n) ? 0 : n;
+  return isNaN(n) ? 0 : Math.floor(n);
 }
 function toBool(v, fallback) {
   if (v === undefined || v === null || String(v).trim() === '') return fallback;
@@ -544,15 +544,40 @@ function podiumCard(item, idx, borderCls, heightCls, medal, scaleCls, level) {
   const rankPrize = (prz.perRank[idx] || 0);
   const rankName  = (prz.names[idx]  || '');
 
-  let rewardHtml = '';
-  if (level !== 'country') {
-    rewardHtml = rankPrize > 0
-      ? `<div class="mt-2 p-1.5 bg-slate-950/80 rounded-lg border border-goldMedal/30 text-center">
-           <span class="block text-xs text-goldMedal font-black">${rankPrize.toLocaleString()} ETB</span>
-           <span class="text-[8px] text-slate-300 font-bold">${rankName}</span>
+  // Qualification status always shown; prize shown only when earned
+  let qualBadge = '';
+  if (level === 'country') {
+    // country view: no prize, just show ach status
+    qualBadge = item.eligible
+      ? `<div class="mt-2 flex items-center justify-center gap-1 px-2 py-1 rounded-lg bg-turfGreen/15 border border-turfGreen/30">
+           <span class="text-[9px] font-black text-turfGreen uppercase tracking-wide">✅ Qualified</span>
          </div>`
-      : `<span class="block text-xs text-red-400 font-extrabold mt-1">⏳ Not Yet Qualified</span>`;
+      : `<div class="mt-2 flex items-center justify-center gap-1 px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/20">
+           <span class="text-[9px] font-black text-red-400 uppercase tracking-wide">⏳ Not Yet Qualified</span>
+         </div>`;
+  } else if (item.eligible && rankPrize > 0) {
+    // Qualified + prize for this rank
+    qualBadge = `<div class="mt-2 space-y-1">
+      <div class="flex items-center justify-center gap-1 px-2 py-0.5 rounded-lg bg-turfGreen/15 border border-turfGreen/30">
+        <span class="text-[9px] font-black text-turfGreen uppercase tracking-wide">✅ Qualified</span>
+      </div>
+      <div class="p-1.5 bg-slate-950/80 rounded-lg border border-goldMedal/30 text-center">
+        <span class="block text-xs text-goldMedal font-black">${rankPrize.toLocaleString()} ETB</span>
+        <span class="text-[8px] text-slate-300 font-bold">${rankName}</span>
+      </div>
+    </div>`;
+  } else if (item.eligible) {
+    // Qualified but no per-rank prize at this slot (e.g. region only has 1st prize)
+    qualBadge = `<div class="mt-2 flex items-center justify-center gap-1 px-2 py-1 rounded-lg bg-turfGreen/15 border border-turfGreen/30">
+      <span class="text-[9px] font-black text-turfGreen uppercase tracking-wide">✅ Qualified</span>
+    </div>`;
+  } else {
+    // Not yet qualified
+    qualBadge = `<div class="mt-2 flex items-center justify-center gap-1 px-2 py-1 rounded-lg bg-red-500/10 border border-red-500/20">
+      <span class="text-[9px] font-black text-red-400 uppercase tracking-wide">⏳ Not Yet Qualified</span>
+    </div>`;
   }
+  const rewardHtml = qualBadge;
 
   const el = document.createElement('div');
   el.className = `flex flex-col items-center w-full sm:w-48 text-center transform hover:scale-105 transition-all ${scaleCls}`;
@@ -624,8 +649,9 @@ function renderTLByRegion(container, computed) {
       rWrap.className = 'grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 pt-3 border-t border-white/5';
       runners.forEach((r,i) => {
         const prizeTag = r.eligible
-          ? `<span class="text-[10px] font-extrabold text-goldMedal">🎁 ${(PRIZE.tl.perRank[3+i]||0).toLocaleString()} ETB</span>`
-          : `<span class="text-[10px] text-red-400">Qualification Pending</span>`;
+          ? `<span class="inline-flex items-center gap-1 text-[10px] font-extrabold text-turfGreen">✅ Qualified</span>` +
+            ((PRIZE.tl.perRank[3+i]||0) > 0 ? `<span class="block text-[10px] text-goldMedal font-bold">🎁 ${(PRIZE.tl.perRank[3+i]||0).toLocaleString()} ETB</span>` : '')
+          : `<span class="inline-flex items-center gap-1 text-[10px] font-bold text-red-400">⏳ Not Yet Qualified</span>`;
         const c = document.createElement('div');
         c.className = 'p-3 bg-slate-950/40 rounded-xl text-xs flex justify-between items-center';
         c.innerHTML = `
@@ -700,10 +726,13 @@ function renderSinglePodium(container, runnersEl, computed, level) {
   // 4th & 5th
   computed.slice(3,5).forEach((item,i) => {
     const prizeTag = level === 'country'
-      ? ''
-      : (item.eligible && (prz.perRank[3+i]||0) > 0
-          ? `<span class="text-xs font-extrabold text-goldMedal">🎁 ${(prz.perRank[3+i]).toLocaleString()} ETB</span>`
-          : `<span class="text-xs text-red-400">Qualification Pending</span>`);
+      ? (item.eligible
+          ? `<span class="text-xs font-extrabold text-turfGreen">✅ Qualified</span>`
+          : `<span class="text-xs font-bold text-red-400">⏳ Not Yet Qualified</span>`)
+      : (item.eligible
+          ? `<span class="text-xs font-extrabold text-turfGreen">✅ Qualified</span>` +
+            ((prz.perRank[3+i]||0) > 0 ? ` <span class="text-xs text-goldMedal font-bold">· 🎁 ${(prz.perRank[3+i]).toLocaleString()} ETB</span>` : '')
+          : `<span class="text-xs font-bold text-red-400">⏳ Not Yet Qualified</span>`);
     const card = document.createElement('div');
     card.className = 'p-3 bg-slate-900/60 rounded-xl border border-white/5 flex items-center justify-between';
     card.innerHTML = `
