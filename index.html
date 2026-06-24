@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>DStv Ethiopia Sales CHAMPIONSHIPS</title>
+<title>DStv Ethiopia Sales CHAMPIONSHIP</title>
 <script src="https://cdn.tailwindcss.com"></script>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -55,7 +55,7 @@
       <div class="h-8 w-px bg-white/20 hidden md:block"></div>
       <div>
         <h1 class="text-xl sm:text-2xl font-black tracking-tight text-white">
-          DSTV ETHIOPIA SALES <span class="text-goldMedal">CHAMPIONSHIPS</span>
+          DSTV ETHIOPIA SALES <span class="text-goldMedal">CHAMPIONSHIPss</span>
         </h1>
         <p class="text-[10px] text-slate-400 uppercase tracking-wider font-extrabold">Live Leaderboard</p>
       </div>
@@ -121,6 +121,20 @@
         </div>
       </div>
     </div>
+  </div>
+
+
+  <!-- ── Column Debug Panel ── hidden by default, toggle with ?debug=1 in URL or #debug ── -->
+  <div id="debug-panel" class="hidden glass-card rounded-2xl p-5 border border-yellow-500/30">
+    <div class="flex items-center justify-between mb-3">
+      <h3 class="text-xs font-black uppercase text-yellow-400 tracking-widest">🔧 Column Detection Debug</h3>
+      <span class="text-[10px] text-slate-500">Open browser DevTools Console for full logs</span>
+    </div>
+    <p class="text-[10px] text-slate-400 mb-3">
+      If achievement shows 0% these column names from your sheet were not matched correctly.
+      Share them and the exact column header names from your Google Sheet to fix the mapping.
+    </p>
+    <div id="debug-content" class="space-y-3"></div>
   </div>
 
 </main>
@@ -259,37 +273,69 @@ async function loadAll() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ROW MAPPING  — 2-D array from Apps Script → typed objects
 // ═══════════════════════════════════════════════════════════════════════════════
+
+// findCol: tries aliases in order.
+// Strategy: exact → ends-with → starts-with. No arbitrary substring match
+// to avoid collisions (e.g. 'target' matching 'target achievement %').
 function findCol(headers, aliases) {
-  const exact = headers.findIndex(h => aliases.includes(h));
-  if (exact !== -1) return exact;
-  const sorted = [...aliases].sort((a,b) => b.length - a.length);
-  return headers.findIndex(h => sorted.some(a => h.includes(a)));
+  // 1. exact full match
+  for (const a of aliases) {
+    const i = headers.findIndex(h => h === a);
+    if (i !== -1) return i;
+  }
+  // 2. header ends with alias (e.g. "nns actual" ends with "actual")
+  const byLen = [...aliases].sort((a, b) => b.length - a.length);
+  for (const a of byLen) {
+    const i = headers.findIndex(h => h.endsWith(a));
+    if (i !== -1) return i;
+  }
+  // 3. header starts with alias
+  for (const a of byLen) {
+    const i = headers.findIndex(h => h.startsWith(a));
+    if (i !== -1) return i;
+  }
+  return -1;
 }
+
 function toNum(v) {
   if (typeof v === 'number') return isNaN(v) ? 0 : v;
-  const n = parseFloat(String(v == null ? '' : v).replace(/[, ]/g,''));
+  const n = parseFloat(String(v == null ? '' : v).replace(/[,%\s]/g, ''));
   return isNaN(n) ? 0 : n;
 }
 function toBool(v, fallback) {
   if (v === undefined || v === null || String(v).trim() === '') return fallback;
-  return ['yes','true','1','clean','compliant'].includes(String(v).trim().toLowerCase());
+  return ['yes','true','1','clean','compliant','y'].includes(String(v).trim().toLowerCase());
 }
+
+// Store raw detected headers for the debug panel
+const detectedHeaders = {};
 
 function mapRows(raw, level) {
   if (!raw || raw.length < 2) return [];
   const headers = raw[0].map(h => String(h == null ? '' : h).trim().toLowerCase());
 
-  const nameIdx       = findCol(headers, ['name','leader','manager','candidate','head','regional head','territory']);
-  const targetIdx     = findCol(headers, ['target','goal','quota']);
-  const actualIdx     = findCol(headers, ['actual','sales','activation','nns','achieved']);
-  const disciplineIdx = findCol(headers, ['discipline','compliant','conduct','clean']);
-  const regionIdx     = findCol(headers, ['region','zone']);
-  const territoryIdx  = findCol(headers, ['territory','city','place']);
-  const tsmIdx        = findCol(headers, ['tsm','territory sales manager']);
-  const headIdx       = findCol(headers, ['head','regional head','rho']);
-  const fssIdx        = findCol(headers, ['fss','score']);
+  // Save for debug panel
+  detectedHeaders[level] = headers;
 
-  if (nameIdx === -1 || targetIdx === -1 || actualIdx === -1) return [];
+  // Aliases ordered most-specific → least-specific
+  const nameIdx       = findCol(headers, ['tl name','tsm name','leader name','manager name','agent name','employee name','staff name','full name','candidate name','name']);
+  const targetIdx     = findCol(headers, ['nns target','monthly target','sales target','annual target','target']);
+  const actualIdx     = findCol(headers, ['nns actual','monthly actual','sales actual','actual achievement','achieved','activations','actual']);
+  const disciplineIdx = findCol(headers, ['disciplinary','discipline','compliant','conduct','clean']);
+  const regionIdx     = findCol(headers, ['region name','region','zone','area']);
+  const territoryIdx  = findCol(headers, ['territory name','territory']);
+  const tsmIdx        = findCol(headers, ['tsm name','territory sales manager','tsm']);
+  const headIdx       = findCol(headers, ['regional head','rho','rhos','head']);
+  const fssIdx        = findCol(headers, ['fss score','fss','field score']);
+
+  // Always log so devtools shows what was detected
+  console.log('[dstv][' + level + '] headers:', headers);
+  console.log('[dstv][' + level + '] map:', { nameIdx, targetIdx, actualIdx, disciplineIdx, regionIdx, territoryIdx, tsmIdx, headIdx, fssIdx });
+
+  if (nameIdx === -1 || targetIdx === -1 || actualIdx === -1) {
+    console.warn('[dstv][' + level + '] MISSING COLUMN — name:' + nameIdx + ' target:' + targetIdx + ' actual:' + actualIdx + '. Headers were:', headers);
+    return [];
+  }
 
   const out = [];
   for (let i = 1; i < raw.length; i++) {
@@ -754,12 +800,49 @@ function launchConfetti() {
   }
 }
 
+
+// ── Debug panel ───────────────────────────────────────────────────────────────
+function renderDebugPanel() {
+  const panel = document.getElementById('debug-panel');
+  const content = document.getElementById('debug-content');
+  if (!panel || !content) return;
+
+  const hash   = (window.location.hash || '').replace(/^#/, '');
+  const hParams = new URLSearchParams(hash);
+  const qParams = new URLSearchParams(window.location.search);
+  const showDebug = hParams.get('debug') === '1' || qParams.get('debug') === '1';
+  if (!showDebug) return;
+
+  panel.classList.remove('hidden');
+  content.innerHTML = '';
+
+  const COL_LABELS = {
+    nameIdx:'Name', targetIdx:'Target', actualIdx:'Actual',
+    disciplineIdx:'Discipline', regionIdx:'Region', territoryIdx:'Territory',
+    tsmIdx:'TSM', headIdx:'Head', fssIdx:'FSS'
+  };
+
+  Object.entries(detectedHeaders).forEach(([level, headers]) => {
+    const div = document.createElement('div');
+    div.className = 'p-3 bg-slate-950/60 rounded-xl border border-white/5';
+    div.innerHTML = '<p class="text-[10px] font-black text-yellow-300 uppercase mb-2">' + level.toUpperCase() + ' Sheet</p>' +
+      '<div class="flex flex-wrap gap-1">' +
+      headers.map((h, i) => '<span class="px-2 py-0.5 rounded text-[9px] font-mono bg-slate-800 text-slate-300">[' + i + '] ' + (h || '(empty)') + '</span>').join('') +
+      '</div>';
+    content.appendChild(div);
+  });
+
+  if (Object.keys(detectedHeaders).length === 0) {
+    content.innerHTML = '<p class="text-xs text-slate-400">No sheets loaded yet. Reload the page after connecting sheets.</p>';
+  }
+}
+
 // ═══════════════════════════════════════════════════════════════════════════════
 // INIT
 // ═══════════════════════════════════════════════════════════════════════════════
 resolveConfig();
 setLevel('tl');
-loadAll();
+loadAll().then(renderDebugPanel);
 </script>
 </body>
 </html>
